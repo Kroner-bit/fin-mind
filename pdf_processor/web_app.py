@@ -143,6 +143,10 @@ class WorkerManager:
         self.json_dir = BASE_DIR / self.config.get("json_dir", "json")
         self.pdf_dir.mkdir(exist_ok=True)
         self.json_dir.mkdir(exist_ok=True)
+        try:
+            self.scan_pdfs()
+        except Exception as e:
+            print(f"[Startup] Initial PDF scan notice: {e}")
 
         self.is_processing = False
         self.should_stop = False
@@ -1006,6 +1010,7 @@ async def get_index():
 @app.get("/api/status")
 async def get_status():
     """Get full system status, metrics, and workers."""
+    worker_mgr.reload_config()
     return {
         "is_processing": worker_mgr.is_processing,
         "config": worker_mgr.config,
@@ -1356,6 +1361,7 @@ async def websocket_endpoint(websocket: WebSocket):
     """WebSocket connection for real-time logs, metrics, and worker status."""
     await manager.connect(websocket)
     try:
+        worker_mgr.reload_config()
         # Send initial metrics right after connecting
         await websocket.send_json({
             "type": "init",

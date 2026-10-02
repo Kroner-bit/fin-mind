@@ -94,7 +94,8 @@ class Database:
                 total_tokens INTEGER DEFAULT 0,
                 model TEXT,
                 success INTEGER DEFAULT 1,
-                api_key_id TEXT DEFAULT ''
+                api_key_id TEXT DEFAULT '',
+                key_id TEXT DEFAULT ''
             )
         """)
 
@@ -161,6 +162,9 @@ class Database:
                 cols = [row[1] for row in self.conn.execute("PRAGMA table_info(api_usage)").fetchall()]
                 if "api_key_id" not in cols:
                     self.conn.execute("ALTER TABLE api_usage ADD COLUMN api_key_id TEXT DEFAULT ''")
+                    self.conn.commit()
+                if "key_id" not in cols:
+                    self.conn.execute("ALTER TABLE api_usage ADD COLUMN key_id TEXT DEFAULT ''")
                     self.conn.commit()
 
                 # Migrate legacy requests to the primary key

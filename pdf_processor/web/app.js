@@ -23,7 +23,7 @@ const state = {
   workerSlots: {},
   workerBuffers: {},
   pdfs: [],
-  currentFilter: "processing",
+  currentFilter: "all",
   searchQuery: "",
   autoScroll: true,
   perKeyUsage: [],
@@ -501,8 +501,11 @@ function renderKeyCards() {
   const addCard = document.getElementById("key-card-add");
   grid.innerHTML = "";
 
-  const keys = state.config.api_keys || [];
+  let keys = (state.config && state.config.api_keys && state.config.api_keys.length > 0) ? state.config.api_keys : [];
   const usage = state.perKeyUsage || [];
+  if (keys.length === 0 && usage.length > 0) {
+    keys = usage.map((u, i) => ({ id: u.id, label: u.label || `Kulcs #${i + 1}`, rpd: u.rpd_limit || 500 }));
+  }
 
   keys.forEach((keyCfg, idx) => {
     const keyUsage = usage.find(u => u.id === keyCfg.id) || {
@@ -609,8 +612,11 @@ function renderCompactKeyChips() {
   const container = el.keyCardsCompact;
   if (!container) return;
 
-  const keys = state.config?.api_keys || [];
+  let keys = (state.config && state.config.api_keys && state.config.api_keys.length > 0) ? state.config.api_keys : [];
   const usage = state.perKeyUsage || [];
+  if (keys.length === 0 && usage.length > 0) {
+    keys = usage.map((u, i) => ({ id: u.id, label: u.label || `Kulcs #${i + 1}`, rpd: u.rpd_limit || 500 }));
+  }
 
   if (keys.length === 0) {
     container.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); padding: 0.5rem 0;">Még nincs API kulcs konfigurálva.</div>`;
@@ -1143,7 +1149,7 @@ async function fetchPdfs(silent = false) {
     if (!res.ok) return;
     const data = await res.json();
     state.pdfs = data.pdfs || [];
-    if (state.currentFilter !== "processing") renderStandardTable();
+    renderStandardTable();
   } catch (e) { if (!silent) console.error("Failed to fetch PDFs", e); }
 }
 
@@ -1458,6 +1464,54 @@ function startSecondTickers() {
   }, 1000);
 }
 
+// ─── Initial REST Data Pre-fetch ───────────────────────────────────────────
+
+async function loadInitialData() {
+  try {
+    const [statusRes, keysRes, pdfsRes] = await Promise.allSettled([
+      fetch("/api/status"),
+      fetch("/api/keys"),
+      fetch("/api/pdfs?limit=5000")
+    ]);
+
+    if (statusRes.status === "fulfilled" && statusRes.value.ok) {
+      const data = await statusRes.value.json();
+      if (data.config) state.config = data.config;
+      updateConfigDisplay();
+      if (data.metrics) {
+        state.perKeyUsage = data.metrics.per_key_usage || [];
+        state.activeKeyId = data.metrics.active_key_id;
+        state.activeKeyMode = data.metrics.active_key_mode || "auto";
+        dispatchMetricsUpdate(data.metrics, data.stats);
+      }
+    }
+
+    if (keysRes.status === "fulfilled" && keysRes.value.ok) {
+      const kdata = await keysRes.value.json();
+      if (kdata.keys && kdata.keys.length > 0) {
+        state.config.api_keys = kdata.keys;
+      }
+      if (kdata.per_key_usage && kdata.per_key_usage.length > 0) {
+        state.perKeyUsage = kdata.per_key_usage;
+      }
+      if (kdata.active_key_id) state.activeKeyId = kdata.active_key_id;
+      if (kdata.active_key_mode) state.activeKeyMode = kdata.active_key_mode;
+    }
+
+    if (pdfsRes.status === "fulfilled" && pdfsRes.value.ok) {
+      const pdata = await pdfsRes.value.json();
+      state.pdfs = pdata.pdfs || [];
+    }
+
+    renderKeyCards();
+    renderCompactKeyChips();
+    renderModalKeyList();
+    renderStandardTable();
+  } catch (e) {
+    console.warn("loadInitialData error:", e);
+  }
+}
+
 // ─── Initialize ─────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1468,6 +1522,7 @@ document.addEventListener("DOMContentLoaded", () => {
   startAnimationEngine();
   startSecondTickers();
   setupWorkerTerminals(state.workersCount);
+  loadInitialData();
   initWebSocket();
-  fetchPdfs();
 });
+
