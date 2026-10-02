@@ -67,50 +67,117 @@ body, html {
 }
 
 /* ==========================================================================
-   MINIMALIST FLOATING GLASS PILL MENU (TOP CENTER)
+   TOP RIGHT CORNER CIRCULAR GLASS BUTTON
    ========================================================================== */
-.floating-hud {
-  position: absolute;
-  top: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  pointer-events: none;
-}
-
-.minimal-pill-bar {
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.35rem 0.6rem;
-  background: var(--bg-pill);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid var(--border-subtle);
-  border-radius: 9999px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.minimal-pill-bar:hover {
-  border-color: var(--border-medium);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-}
-
-.pill-section {
+.corner-circle-btn {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(22, 22, 26, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0 0.4rem;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 90;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
 }
 
-/* Brand Group */
-.brand-section {
-  padding-left: 0.35rem;
+.corner-circle-btn:hover {
+  background: rgba(32, 32, 38, 0.9);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: scale(1.08);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 16px rgba(48, 209, 88, 0.25);
 }
 
-.live-pulse-dot {
+.corner-circle-btn.active {
+  background: rgba(48, 209, 88, 0.18);
+  border-color: rgba(48, 209, 88, 0.45);
+  color: #fff;
+}
+
+.circle-btn-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--apple-green);
+  box-shadow: 0 0 8px var(--apple-green);
+  animation: pulse-dot 2.5s infinite;
+}
+
+.circle-btn-icon {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.corner-circle-btn:hover .circle-btn-icon {
+  transform: rotate(45deg);
+}
+
+/* ==========================================================================
+   COLLAPSIBLE APPLE FROSTED GLASS SETTINGS & CONTROLS DRAWER
+   ========================================================================== */
+.settings-panel {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 320px;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  background: rgba(20, 20, 24, 0.92);
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  padding: 1.15rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.94) translateY(-10px);
+  transform-origin: top right;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.22s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.settings-panel.open {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1) translateY(0);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.panel-live-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -119,77 +186,220 @@ body, html {
   animation: pulse-dot 2.5s infinite;
 }
 
-@keyframes pulse-dot {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.25); box-shadow: 0 0 12px var(--apple-green); }
-}
-
-.brand-title {
+.settings-title {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
   color: #fff;
+  letter-spacing: 0.4px;
 }
 
-.pill-divider {
-  width: 1px;
-  height: 14px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* FPS Meter */
-.fps-value {
-  font-family: var(--font-mono);
+.settings-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.75rem;
-  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  outline: none;
+}
+
+.settings-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  margin-bottom: 0.55rem;
+  text-transform: uppercase;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 0.5rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.metric-val {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
   color: var(--apple-green);
 }
 
-/* Node Counts */
-.count-section {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+.metric-key {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
-.count-number {
-  font-weight: 700;
+/* Palette List */
+.palette-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.palette-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  width: 100%;
+  text-align: left;
+  outline: none;
+}
+
+.palette-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.palette-btn.active {
+  background: rgba(10, 132, 255, 0.12);
+  border-color: var(--apple-blue);
+  box-shadow: 0 0 14px rgba(10, 132, 255, 0.22);
+}
+
+.palette-preview {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.cyber-preview { background: linear-gradient(135deg, #0A84FF, #30D158, #BF5AF2); }
+.monochrome-preview { background: linear-gradient(135deg, #FFFFFF, #AEAEB2, #3A3A3C); }
+.emerald-preview { background: linear-gradient(135deg, #00F5D4, #30D158, #00BBF9); }
+.solar-preview { background: linear-gradient(135deg, #FFD166, #FFB703, #FF5400); }
+.nebula-preview { background: linear-gradient(135deg, #BF5AF2, #64D2FF, #FF2A85); }
+
+.palette-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.palette-name {
+  font-size: 0.78rem;
+  font-weight: 600;
   color: #fff;
 }
 
-.count-label {
-  font-size: 0.7rem;
+.palette-desc {
+  font-size: 0.65rem;
   color: var(--text-muted);
 }
 
-/* Interactive Pill Buttons */
-.pill-btn {
-  display: inline-flex;
+/* Controls list */
+.controls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.control-row-btn {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
   color: var(--text-secondary);
-  padding: 0.3rem 0.65rem;
-  border-radius: 9999px;
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.16s ease;
+  width: 100%;
+  outline: none;
 }
 
-.pill-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.control-row-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  border-color: var(--border-medium);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
-.pill-btn.active {
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
-  border-color: var(--border-medium);
+.control-icon-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.control-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.control-row-btn.active .control-badge {
+  background: rgba(48, 209, 88, 0.2);
+  color: var(--apple-green);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+}
+
+.control-key-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.test-shockwave-btn {
+  border-color: rgba(255, 159, 10, 0.3);
+}
+
+.test-shockwave-btn:hover {
+  border-color: rgba(255, 159, 10, 0.6);
+  background: rgba(255, 159, 10, 0.1);
+}
+
+.control-badge.pulse {
+  background: rgba(255, 159, 10, 0.2);
+  color: var(--apple-amber);
+  border: 1px solid rgba(255, 159, 10, 0.4);
 }
 
 .sync-indicator {
@@ -201,7 +411,7 @@ body, html {
   transition: background 0.2s ease;
 }
 
-.pill-btn:not(.active) .sync-indicator {
+.control-row-btn:not(.active) .sync-indicator {
   background: var(--text-muted);
   box-shadow: none;
 }
@@ -212,12 +422,8 @@ body, html {
   transition: transform 0.3s ease;
 }
 
-.pill-btn.active .rotate-symbol {
+.control-row-btn.active .rotate-symbol {
   color: var(--apple-blue);
-}
-
-.pill-btn.icon-only {
-  padding: 0.3rem 0.5rem;
 }
 
 /* ==========================================================================

@@ -5,6 +5,130 @@
  * és dinamikus "csillagszületés" animáció (Shockwave & Lerp) az új tanulmányok beérkezésekor!
  */
 
+// ─── Választható Színpaletták Gyűjteménye ─────────────────────────
+const COLOR_PALETTES = {
+  cyber: {
+    id: 'cyber',
+    name: 'Apple Cyber',
+    disciplines: {
+      QuantitativeFinance: '#0A84FF',
+      EconomicsAndEconometrics: '#30D158',
+      ComputerScienceAndAI: '#64D2FF',
+      MathematicsAndStatistics: '#BF5AF2',
+      PhysicsAndComplexSystems: '#FF9F0A',
+      AstrophysicsAndCosmology: '#30D158',
+      InterdisciplinaryScience: '#5E5CE6',
+      Other: '#98989D'
+    },
+    types: {
+      paper: '#0A84FF',
+      author: '#FF9F0A',
+      strategy: '#FF453A',
+      discipline: '#30D158',
+      asset: '#BF5AF2',
+      topic: '#6E6E73'
+    },
+    accent: '#30D158',
+    lineColor: '#6E6E73'
+  },
+  monochrome: {
+    id: 'monochrome',
+    name: 'Monochrome Minimal',
+    disciplines: {
+      QuantitativeFinance: '#FFFFFF',
+      EconomicsAndEconometrics: '#E5E5EA',
+      ComputerScienceAndAI: '#D1D1D6',
+      MathematicsAndStatistics: '#C7C7CC',
+      PhysicsAndComplexSystems: '#AEAEB2',
+      AstrophysicsAndCosmology: '#8E8E93',
+      InterdisciplinaryScience: '#E5E5EA',
+      Other: '#636366'
+    },
+    types: {
+      paper: '#FFFFFF',
+      author: '#D1D1D6',
+      strategy: '#E5E5EA',
+      discipline: '#FFFFFF',
+      asset: '#AEAEB2',
+      topic: '#636366'
+    },
+    accent: '#FFFFFF',
+    lineColor: '#48484A'
+  },
+  emerald: {
+    id: 'emerald',
+    name: 'Deep Emerald',
+    disciplines: {
+      QuantitativeFinance: '#00F5D4',
+      EconomicsAndEconometrics: '#30D158',
+      ComputerScienceAndAI: '#00BBF9',
+      MathematicsAndStatistics: '#2EC4B6',
+      PhysicsAndComplexSystems: '#20BF6B',
+      AstrophysicsAndCosmology: '#52B788',
+      InterdisciplinaryScience: '#38B000',
+      Other: '#40916C'
+    },
+    types: {
+      paper: '#00F5D4',
+      author: '#52B788',
+      strategy: '#30D158',
+      discipline: '#20BF6B',
+      asset: '#00BBF9',
+      topic: '#2EC4B6'
+    },
+    accent: '#00F5D4',
+    lineColor: '#1B4332'
+  },
+  solar: {
+    id: 'solar',
+    name: 'Solar Amber',
+    disciplines: {
+      QuantitativeFinance: '#FFD166',
+      EconomicsAndEconometrics: '#FFB703',
+      ComputerScienceAndAI: '#FB8500',
+      MathematicsAndStatistics: '#FF9F0A',
+      PhysicsAndComplexSystems: '#FF5400',
+      AstrophysicsAndCosmology: '#F77F00',
+      InterdisciplinaryScience: '#E85D04',
+      Other: '#D90429'
+    },
+    types: {
+      paper: '#FFD166',
+      author: '#FFB703',
+      strategy: '#FF5400',
+      discipline: '#FB8500',
+      asset: '#F77F00',
+      topic: '#D90429'
+    },
+    accent: '#FFD166',
+    lineColor: '#6A040F'
+  },
+  nebula: {
+    id: 'nebula',
+    name: 'Nebula Violet',
+    disciplines: {
+      QuantitativeFinance: '#BF5AF2',
+      EconomicsAndEconometrics: '#5E5CE6',
+      ComputerScienceAndAI: '#64D2FF',
+      MathematicsAndStatistics: '#DA70D6',
+      PhysicsAndComplexSystems: '#E0AAFF',
+      AstrophysicsAndCosmology: '#9D4EDD',
+      InterdisciplinaryScience: '#7B2CBF',
+      Other: '#5A189A'
+    },
+    types: {
+      paper: '#BF5AF2',
+      author: '#E0AAFF',
+      strategy: '#FF2A85',
+      discipline: '#64D2FF',
+      asset: '#9D4EDD',
+      topic: '#5A189A'
+    },
+    accent: '#BF5AF2',
+    lineColor: '#3C096C'
+  }
+};
+
 class GraphEngine3D {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
@@ -16,6 +140,13 @@ class GraphEngine3D {
       linkOpacity: 0.18,
       backgroundColor: 0x121214 // Apple Pro Dark Matte
     }, options);
+
+    // Színpaletta állapot (perzisztált választás)
+    let savedPal = 'cyber';
+    try {
+      savedPal = localStorage.getItem('finmind_palette_3d') || 'cyber';
+    } catch (e) {}
+    this.activePaletteId = COLOR_PALETTES[savedPal] ? savedPal : 'cyber';
 
     // Belső adatreprezentáció
     this.nodes = [];
@@ -116,6 +247,46 @@ class GraphEngine3D {
     // 6. Letisztult Apple Dark Matte háttér (háttér csillagok nélkül)
   }
 
+  // ─── Színpaletta Kezelés ──────────────────────────────────────
+
+  getNodeColor(node) {
+    const pal = COLOR_PALETTES[this.activePaletteId] || COLOR_PALETTES['cyber'];
+    if (node.type === 'discipline') {
+      const disc = node.label || node.primary_discipline;
+      if (pal.disciplines && pal.disciplines[disc]) return pal.disciplines[disc];
+    }
+    if (node.type === 'paper' && node.primary_discipline && pal.disciplines && pal.disciplines[node.primary_discipline]) {
+      return pal.disciplines[node.primary_discipline];
+    }
+    if (pal.types && pal.types[node.type]) {
+      return pal.types[node.type];
+    }
+    return node.color || pal.accent || '#0A84FF';
+  }
+
+  setColorPalette(paletteId) {
+    if (!COLOR_PALETTES[paletteId]) return;
+    this.activePaletteId = paletteId;
+    try {
+      localStorage.setItem('finmind_palette_3d', paletteId);
+    } catch (e) {}
+
+    const count = this.nodes.length;
+    for (let i = 0; i < count; i++) {
+      const colHex = this.getNodeColor(this.nodes[i]);
+      this.baseColors[i] = new THREE.Color(colHex);
+      if (this.instancedMesh) {
+        this.instancedMesh.setColorAt(i, this.baseColors[i]);
+      }
+    }
+
+    if (this.instancedMesh && this.instancedMesh.instanceColor) {
+      this.instancedMesh.instanceColor.needsUpdate = true;
+    }
+
+    this.rebuildLinkMesh();
+  }
+
   // ─── Adatfrissítés & GPU Instancing ──────────────────────────
 
   setGraphData(graphData, newlyArrivedNodeIds = []) {
@@ -146,6 +317,17 @@ class GraphEngine3D {
 
     this.rebuildNodeMesh(incomingIds);
     this.rebuildLinkMesh();
+
+    // Ha érkezett új csomópont és ez nem a kezdeti betöltés:
+    // Elindítjuk az elsötétülős, végigsöprő sokkhullám animációt!
+    if (incomingIds.length > 0 && oldNodeIds.size > 0) {
+      const incomingSet = new Set(incomingIds);
+      const firstNew = this.nodes.find(n => incomingSet.has(n.id));
+      if (firstNew) {
+        const originPos = new THREE.Vector3(firstNew.x || 0, firstNew.y || 0, firstNew.z || 0);
+        this.triggerArrivalShockwave(originPos, incomingIds);
+      }
+    }
   }
 
   rebuildNodeMesh(incomingIds = []) {
@@ -192,32 +374,28 @@ class GraphEngine3D {
 
       const isNew = incomingSet.has(n.id);
       if (isNew) {
-        // Új csomópont: külső űrből sodródik be
+        // Új csomópont: külső űrből sodródik be lágyan
         const startPos = new THREE.Vector3(x * 1.35, y + 140, z * 1.35);
         this.dummyMatrix.makeScale(0.01, 0.01, 0.01);
         this.dummyMatrix.setPosition(startPos.x, startPos.y, startPos.z);
         this.instancedMesh.setMatrixAt(i, this.dummyMatrix);
 
-        // Becsatolás az aktív animációk közé
         this.activeSpawns.push({
           nodeIndex: i,
           startPos: startPos,
           targetPos: new THREE.Vector3(x, y, z),
           startTime: performance.now(),
-          duration: 1600, // 1.6 mp sima lerp
+          duration: 1600,
           targetScale: scale
         });
-
-        // Hozzuk létre a táguló sokkhullám karikát (Shockwave Ring Effect)
-        this.createShockwave(new THREE.Vector3(x, y, z), n.color || 0x30d158);
       } else {
         this.dummyMatrix.makeScale(scale, scale, scale);
         this.dummyMatrix.setPosition(x, y, z);
         this.instancedMesh.setMatrixAt(i, this.dummyMatrix);
       }
 
-      // Szín hozzárendelés
-      const colHex = n.color || '#0A84FF';
+      // Szín hozzárendelés az aktív paletta alapján
+      const colHex = this.getNodeColor(n);
       const col = new THREE.Color(colHex);
       this.baseColors[i] = col;
       this.instancedMesh.setColorAt(i, col);
@@ -231,28 +409,100 @@ class GraphEngine3D {
     this.scene.add(this.instancedMesh);
   }
 
-  createShockwave(position, colorHex) {
-    const ringGeo = new THREE.RingGeometry(3.0, 7.5, 32);
+  // ─── Látványos Elsötétülő & Hullámszerűen Visszaszínező Shockwave ──
+
+  triggerArrivalShockwave(originPos, incomingIds = []) {
+    const count = this.nodes.length;
+    if (count === 0 || !this.instancedMesh) return;
+
+    const pal = COLOR_PALETTES[this.activePaletteId] || COLOR_PALETTES['cyber'];
+    const accentCol = new THREE.Color(pal.accent || '#30D158');
+
+    // 1. Távolságok kiszámítása az epicentrumtól
+    const distances = new Float32Array(count);
+    let maxDist = 0;
+    for (let i = 0; i < count; i++) {
+      const n = this.nodes[i];
+      const dx = (n.x || 0) - originPos.x;
+      const dy = (n.y || 0) - originPos.y;
+      const dz = (n.z || 0) - originPos.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      distances[i] = d;
+      if (d > maxDist) maxDist = d;
+    }
+    const maxR = Math.max(maxDist + 400, 3800);
+    const newIdSet = new Set(incomingIds);
+
+    // 2. Minden korábbi pont azonnal elsötétül, KIVÉVE az új csomópont(ok)at!
+    const darkCol = new THREE.Color();
+    for (let i = 0; i < count; i++) {
+      if (newIdSet.has(this.nodes[i].id)) {
+        // Az új elem megőrzi teljes élénk színét
+        this.instancedMesh.setColorAt(i, this.baseColors[i]);
+      } else {
+        // Minden meglévő csomópont elsötétül mély parázs-szintre
+        darkCol.copy(this.baseColors[i]).multiplyScalar(0.06);
+        this.instancedMesh.setColorAt(i, darkCol);
+      }
+    }
+    this.instancedMesh.instanceColor.needsUpdate = true;
+
+    // 3. Halványítjuk az éleket a sokkhullám végigsöprése alatt
+    if (this.linkSegments && this.linkSegments.material) {
+      this.linkSegments.material.opacity = this.options.linkOpacity * 0.15;
+    }
+
+    // 4. Látványos 3D Sokkhullám Gyűrűk
+    const ringGeo = new THREE.RingGeometry(8.0, 24.0, 64);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(colorHex),
+      color: accentCol,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.95,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-
     const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-    ringMesh.position.copy(position);
+    ringMesh.position.copy(originPos);
     ringMesh.lookAt(this.camera.position);
-
     this.scene.add(ringMesh);
+
+    const innerRingGeo = new THREE.RingGeometry(3.0, 10.0, 48);
+    const innerRingMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(1, 1, 1),
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const innerRingMesh = new THREE.Mesh(innerRingGeo, innerRingMat);
+    innerRingMesh.position.copy(originPos);
+    innerRingMesh.lookAt(this.camera.position);
+    this.scene.add(innerRingMesh);
 
     this.activeShockwaves.push({
       mesh: ringMesh,
+      innerMesh: innerRingMesh,
+      origin: originPos.clone(),
       startTime: performance.now(),
-      duration: 1400
+      duration: 2500, // 2.5 másodperces sima söprés
+      maxRadius: maxR,
+      waveWidth: 260,
+      distances: distances,
+      newIdSet: newIdSet,
+      isAwakening: true
     });
+  }
+
+  testShockwave() {
+    if (!this.nodes || this.nodes.length === 0) return;
+    const papers = this.nodes.filter(n => n.type === 'paper');
+    const target = papers.length > 0
+      ? papers[Math.floor(Math.random() * papers.length)]
+      : this.nodes[Math.floor(Math.random() * this.nodes.length)];
+    const pos = new THREE.Vector3(target.x || 0, target.y || 0, target.z || 0);
+    this.triggerArrivalShockwave(pos, [target.id]);
   }
 
   rebuildLinkMesh() {
@@ -404,22 +654,87 @@ class GraphEngine3D {
       this.instancedMesh.instanceMatrix.needsUpdate = true;
     }
 
-    // 2. Sokkhullámok (Shockwaves) tágulása és elhalványulása
+    // 2. Sokkhullámok (Shockwaves) tágulása és a pontok sorban való visszaszínezése
     if (this.activeShockwaves.length > 0) {
       const now = performance.now();
+      const whiteCol = new THREE.Color(1, 1, 1);
+      const tempCol = new THREE.Color();
+
       for (let k = this.activeShockwaves.length - 1; k >= 0; k--) {
         const sw = this.activeShockwaves[k];
-        const p = Math.min((now - sw.startTime) / sw.duration, 1.0);
+        const progress = Math.min((now - sw.startTime) / sw.duration, 1.0);
 
-        const scale = 1.0 + p * 12.0;
-        sw.mesh.scale.set(scale, scale, scale);
-        sw.mesh.material.opacity = (1.0 - p) * 0.8;
-        sw.mesh.lookAt(this.camera.position);
+        // Sima cubic ease-out a hullám terjedési sebességére
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const currentR = sw.maxRadius * ease;
 
-        if (p >= 1.0) {
-          this.scene.remove(sw.mesh);
-          sw.mesh.geometry.dispose();
-          sw.mesh.material.dispose();
+        // Vizuális gyűrűk tágulása és halványulása
+        if (sw.mesh) {
+          const s = Math.max(currentR / 12.0, 0.1);
+          sw.mesh.scale.set(s, s, s);
+          sw.mesh.material.opacity = (1.0 - progress) * 0.95;
+          sw.mesh.lookAt(this.camera.position);
+        }
+        if (sw.innerMesh) {
+          const sIn = Math.max(currentR / 8.0, 0.1);
+          sw.innerMesh.scale.set(sIn, sIn, sIn);
+          sw.innerMesh.material.opacity = (1.0 - progress) * 0.85;
+          sw.innerMesh.lookAt(this.camera.position);
+        }
+
+        // Csomópontok visszaszínezése a hullámfront terjedésével
+        if (sw.isAwakening && this.instancedMesh) {
+          const waveW = sw.waveWidth;
+          const nodeCount = this.nodes.length;
+
+          for (let i = 0; i < nodeCount; i++) {
+            if (sw.newIdSet && sw.newIdSet.has(this.nodes[i].id)) {
+              // Az új elem megőrzi teljes élénk színét
+              continue;
+            }
+
+            const d = sw.distances[i];
+            if (d > currentR) {
+              // A hullám még nem érte el: mély sötétben marad
+              tempCol.copy(this.baseColors[i]).multiplyScalar(0.06);
+              this.instancedMesh.setColorAt(i, tempCol);
+            } else if (d >= currentR - waveW) {
+              // Pontosan a hullámfrontban van: fénylő energialöket / villanás!
+              const waveProgress = (d - (currentR - waveW)) / waveW; // 0..1
+              const pulse = Math.sin(waveProgress * Math.PI);
+              tempCol.copy(this.baseColors[i]).lerp(whiteCol, 0.65 * pulse).multiplyScalar(1.0 + 1.2 * pulse);
+              this.instancedMesh.setColorAt(i, tempCol);
+            } else {
+              // A hullám már áthaladt: visszanyerte a teljes eredeti paletta színét!
+              this.instancedMesh.setColorAt(i, this.baseColors[i]);
+            }
+          }
+          this.instancedMesh.instanceColor.needsUpdate = true;
+        }
+
+        if (progress >= 1.0) {
+          // Takarítás a hullám lecsengésekor
+          if (sw.mesh) {
+            this.scene.remove(sw.mesh);
+            sw.mesh.geometry.dispose();
+            sw.mesh.material.dispose();
+          }
+          if (sw.innerMesh) {
+            this.scene.remove(sw.innerMesh);
+            sw.innerMesh.geometry.dispose();
+            sw.innerMesh.material.dispose();
+          }
+          // Biztosítjuk, hogy minden pont pontosan visszakapja a bázisszínét
+          for (let i = 0; i < this.nodes.length; i++) {
+            this.instancedMesh.setColorAt(i, this.baseColors[i]);
+          }
+          this.instancedMesh.instanceColor.needsUpdate = true;
+
+          // Visszaállítjuk az élek átlátszóságát
+          if (this.linkSegments && this.linkSegments.material) {
+            this.linkSegments.material.opacity = this.options.linkOpacity;
+          }
+
           this.activeShockwaves.splice(k, 1);
         }
       }

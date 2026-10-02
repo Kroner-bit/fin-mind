@@ -7,63 +7,138 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=20261002_spacious_plusone">
+  <link rel="stylesheet" href="/static/style.css?v=20261003_palette_shockwave">
 </head>
 <body>
   <!-- Fullscreen 3D WebGL Canvas -->
   <div id="canvas-container"></div>
 
-  <!-- Minimalist Floating Apple Glass Pill Menu (Top Center) -->
-  <div class="floating-hud">
-    <div class="minimal-pill-bar">
-      
-      <!-- Brand & Status -->
-      <div class="pill-section brand-section">
-        <span class="live-pulse-dot" id="live-dot" title="Élő GPU Render Aktív"></span>
-        <span class="brand-title">FinMind 3D</span>
+  <!-- Top Right Corner Circular Floating Glass Button -->
+  <button id="btn-settings-toggle" class="corner-circle-btn" title="Beállítások és Paletta" aria-label="Beállítások">
+    <span class="circle-btn-dot" id="live-dot" title="Élő GPU Render Aktív"></span>
+    <svg class="circle-btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+
+  <!-- Collapsible Apple Frosted Glass Settings & Palette Drawer -->
+  <aside id="settings-panel" class="settings-panel" aria-hidden="true">
+    <div class="settings-header">
+      <div class="settings-brand">
+        <span class="panel-live-dot"></span>
+        <span class="settings-title">FinMind 3D Vezérlő</span>
       </div>
-
-      <div class="pill-divider"></div>
-
-      <!-- FPS Counter -->
-      <div class="pill-section">
-        <span class="fps-value" id="disp-fps">60 FPS</span>
-      </div>
-
-      <div class="pill-divider"></div>
-
-      <!-- Live Counts -->
-      <div class="pill-section count-section">
-        <span class="count-number" id="disp-nodes">0</span>
-        <span class="count-label">csomópont</span>
-      </div>
-
-      <div class="pill-divider"></div>
-
-      <!-- Auto-Sync Toggle Pill -->
-      <button id="btn-toggle-sync" class="pill-btn active" title="Automatikus szinkronizáció a háttérben futó PDF feldolgozóval">
-        <span class="sync-indicator"></span>
-        <span class="btn-label" id="label-sync">Auto-Sync ON</span>
-      </button>
-
-      <!-- Rotation Toggle Pill -->
-      <button id="btn-toggle-rotate" class="pill-btn active" title="Galaktikus forgás be/ki">
-        <span class="rotate-symbol">↺</span>
-        <span class="btn-label" id="label-rotate">Forgás</span>
-      </button>
-
-      <!-- Sound Toggle Pill -->
-      <button id="btn-toggle-sound" class="pill-btn active icon-only" title="Hangjelzés új tanulmány érkezésekor">
-        <span id="sound-icon">🔔</span>
-      </button>
-
-      <!-- Reset View -->
-      <button id="btn-reset-view" class="pill-btn icon-only" title="Kamera alaphelyzetbe (R billentyű)">
-        <span>🎯</span>
-      </button>
-
+      <button id="btn-close-settings" class="settings-close-btn" title="Bezárás (Esc)">✕</button>
     </div>
-  </div>
+
+    <!-- Live Performance Metrics -->
+    <div class="settings-section">
+      <div class="section-label">ÉLŐ METRIKÁK</div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-val" id="disp-fps">60 FPS</span>
+          <span class="metric-key">GPU Sebesség</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-val" id="disp-nodes">0</span>
+          <span class="metric-key">Csomópont</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-val" id="disp-links">0</span>
+          <span class="metric-key">Backlink él</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color Palette Switcher -->
+    <div class="settings-section">
+      <div class="section-label">SZÍNPALETTA VÁLASZTÓ</div>
+      <div class="palette-list" id="palette-list">
+        <button class="palette-btn active" data-palette="cyber">
+          <span class="palette-preview cyber-preview"></span>
+          <div class="palette-info">
+            <span class="palette-name">Apple Cyber</span>
+            <span class="palette-desc">Élénk kvant multidiszciplináris</span>
+          </div>
+        </button>
+        <button class="palette-btn" data-palette="monochrome">
+          <span class="palette-preview monochrome-preview"></span>
+          <div class="palette-info">
+            <span class="palette-name">Monochrome Minimal</span>
+            <span class="palette-desc">Letisztult titán, jégfehér & ezüst</span>
+          </div>
+        </button>
+        <button class="palette-btn" data-palette="emerald">
+          <span class="palette-preview emerald-preview"></span>
+          <div class="palette-info">
+            <span class="palette-name">Deep Emerald</span>
+            <span class="palette-desc">Cián, neon smaragd & akvamarin</span>
+          </div>
+        </button>
+        <button class="palette-btn" data-palette="solar">
+          <span class="palette-preview solar-preview"></span>
+          <div class="palette-info">
+            <span class="palette-name">Solar Amber</span>
+            <span class="palette-desc">Meleg arany, borostyán & korall</span>
+          </div>
+        </button>
+        <button class="palette-btn" data-palette="nebula">
+          <span class="palette-preview nebula-preview"></span>
+          <div class="palette-info">
+            <span class="palette-name">Nebula Violet</span>
+            <span class="palette-desc">Kozmikus lila, magenta & cián</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="settings-section">
+      <div class="section-label">VEZÉRLŐK</div>
+      <div class="controls-list">
+        <button id="btn-toggle-sync" class="control-row-btn active" title="Automatikus szinkronizáció a háttérrel">
+          <span class="control-icon-label">
+            <span class="sync-indicator"></span>
+            <span>Automatikus Sync</span>
+          </span>
+          <span class="control-badge" id="label-sync">ON</span>
+        </button>
+
+        <button id="btn-toggle-rotate" class="control-row-btn active" title="Galaktikus forgás">
+          <span class="control-icon-label">
+            <span class="rotate-symbol">↺</span>
+            <span>Galaktikus Forgás</span>
+          </span>
+          <span class="control-badge" id="label-rotate">BE</span>
+        </button>
+
+        <button id="btn-toggle-sound" class="control-row-btn active" title="Kozmikus hangjelzés új tanulmánynál">
+          <span class="control-icon-label">
+            <span id="sound-icon">🔔</span>
+            <span>Kozmikus Hang</span>
+          </span>
+          <span class="control-badge" id="label-sound">BE</span>
+        </button>
+
+        <button id="btn-reset-view" class="control-row-btn" title="Kamera alaphelyzetbe (R billentyű)">
+          <span class="control-icon-label">
+            <span>🎯</span>
+            <span>Kamera Reset</span>
+          </span>
+          <span class="control-key-hint">R</span>
+        </button>
+
+        <button id="btn-test-shockwave" class="control-row-btn test-shockwave-btn" title="Shockwave elsötétülés és visszaszínezés tesztelése">
+          <span class="control-icon-label">
+            <span>⚡</span>
+            <span>Shockwave Teszt</span>
+          </span>
+          <span class="control-badge pulse">DEMO</span>
+        </button>
+      </div>
+    </div>
+  </aside>
 
   <!-- Minimal Floating Hover Tooltip -->
   <div id="hover-tooltip" class="floating-tooltip" style="display: none;">
@@ -80,7 +155,7 @@
   <script src="/static/vendor/OrbitControls.js"></script>
 
   <!-- APPLICATION ENGINE & LOGIC -->
-  <script src="/static/graph_engine.js?v=20261002_spacious_plusone"></script>
-  <script src="/static/app.js?v=20261002_spacious_plusone"></script>
+  <script src="/static/graph_engine.js?v=20261003_palette_shockwave"></script>
+  <script src="/static/app.js?v=20261003_palette_shockwave"></script>
 </body>
 </html>

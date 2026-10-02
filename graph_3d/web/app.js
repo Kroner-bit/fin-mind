@@ -10,7 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const el = {
     dispFps: document.getElementById('disp-fps'),
     dispNodes: document.getElementById('disp-nodes'),
+    dispLinks: document.getElementById('disp-links'),
     liveDot: document.getElementById('live-dot'),
+
+    // Sarok Karika Gomb és Beállítások Panel
+    btnSettingsToggle: document.getElementById('btn-settings-toggle'),
+    settingsPanel: document.getElementById('settings-panel'),
+    btnCloseSettings: document.getElementById('btn-close-settings'),
 
     btnToggleSync: document.getElementById('btn-toggle-sync'),
     labelSync: document.getElementById('label-sync'),
@@ -19,9 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
     labelRotate: document.getElementById('label-rotate'),
 
     btnToggleSound: document.getElementById('btn-toggle-sound'),
+    labelSound: document.getElementById('label-sound'),
     soundIcon: document.getElementById('sound-icon'),
 
     btnResetView: document.getElementById('btn-reset-view'),
+    btnTestShockwave: document.getElementById('btn-test-shockwave'),
 
     // Hover Tooltip
     hoverTooltip: document.getElementById('hover-tooltip'),
@@ -229,6 +237,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if (el.dispNodes) {
             el.dispNodes.textContent = Number(g.total_nodes || g.nodes.length || 0).toLocaleString();
           }
+          if (el.dispLinks && g.links) {
+            el.dispLinks.textContent = Number(g.total_links || g.links.length || 0).toLocaleString();
+          }
         }
         isInitialLoad = false;
         return;
@@ -253,11 +264,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Átadjuk az új gráfot a 3D motornak az új azonosítókkal
         // Mivel a backend megőrzi a meglévő koordinátákat (fixed), a nézet nem ugrik meg,
-        // a forgás sima marad, és csak az új csomópont repül be látványosan a helyére!
+        // a forgás sima marad, az egész galaxis elsötétül, és a shockwave sorban visszaszínezi a pontokat!
         engine.setGraphData(newGraph, incomingIds);
 
         if (el.dispNodes) {
           el.dispNodes.textContent = Number(newGraph.total_nodes || newGraph.nodes.length || 0).toLocaleString();
+        }
+        if (el.dispLinks && newGraph.links) {
+          el.dispLinks.textContent = Number(newGraph.total_links || newGraph.links.length || 0).toLocaleString();
         }
 
         // Ha van köztük új tanulmány, finom +1 (vagy +N) lebegő felirat száll el és halványul el a képernyőn
@@ -273,6 +287,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ─── Sarok Karika Gomb & Beállítások Drawer ───────────────────
+
+  function toggleSettings(force) {
+    if (!el.settingsPanel) return;
+    const isCurrentlyOpen = el.settingsPanel.classList.contains('open');
+    const shouldOpen = typeof force === 'boolean' ? force : !isCurrentlyOpen;
+    el.settingsPanel.classList.toggle('open', shouldOpen);
+    el.settingsPanel.setAttribute('aria-hidden', !shouldOpen);
+    if (el.btnSettingsToggle) {
+      el.btnSettingsToggle.classList.toggle('active', shouldOpen);
+    }
+  }
+
+  function closeSettings() {
+    toggleSettings(false);
+  }
+
+  if (el.btnSettingsToggle) {
+    el.btnSettingsToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSettings();
+    });
+  }
+
+  if (el.btnCloseSettings) {
+    el.btnCloseSettings.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeSettings();
+    });
+  }
+
+  // Kattintás a panelen kívülre azonnal bezárja
+  document.addEventListener('pointerdown', (e) => {
+    if (el.settingsPanel && el.settingsPanel.classList.contains('open')) {
+      if (!el.settingsPanel.contains(e.target) && el.btnSettingsToggle && !el.btnSettingsToggle.contains(e.target)) {
+        closeSettings();
+      }
+    }
+  });
+
+  // ─── Színpaletta Választó Események ───────────────────────────
+  const paletteBtns = document.querySelectorAll('.palette-btn');
+  const initialPalette = engine.activePaletteId || 'cyber';
+
+  paletteBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.palette === initialPalette);
+    btn.addEventListener('click', () => {
+      paletteBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const palId = btn.dataset.palette;
+      engine.setColorPalette(palId);
+      playCosmicChime();
+    });
+  });
+
+  // ─── Shockwave Tesztelése (DEMO Gomb) ─────────────────────────
+  if (el.btnTestShockwave) {
+    el.btnTestShockwave.addEventListener('click', () => {
+      engine.testShockwave();
+      showFloatingPlus(1);
+      playCosmicChime();
+    });
+  }
+
   // ─── Vezérlő Gombok Eseményei ─────────────────────────────────
 
   // 1. Auto-Sync ki/be kapcsolása
@@ -281,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isAutoSyncEnabled = !isAutoSyncEnabled;
       el.btnToggleSync.classList.toggle('active', isAutoSyncEnabled);
       if (el.labelSync) {
-        el.labelSync.textContent = isAutoSyncEnabled ? 'Auto-Sync ON' : 'Auto-Sync OFF';
+        el.labelSync.textContent = isAutoSyncEnabled ? 'ON' : 'OFF';
       }
     });
   }
@@ -293,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       engine.toggleAutoRotate(isRotating);
       el.btnToggleRotate.classList.toggle('active', isRotating);
       if (el.labelRotate) {
-        el.labelRotate.textContent = isRotating ? 'Forgás' : 'Megállítva';
+        el.labelRotate.textContent = isRotating ? 'BE' : 'KI';
       }
     });
   }
@@ -303,6 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
     el.btnToggleSound.addEventListener('click', () => {
       isSoundEnabled = !isSoundEnabled;
       el.btnToggleSound.classList.toggle('active', isSoundEnabled);
+      if (el.labelSound) {
+        el.labelSound.textContent = isSoundEnabled ? 'BE' : 'KI';
+      }
       if (el.soundIcon) {
         el.soundIcon.textContent = isSoundEnabled ? '🔔' : '🔕';
       }
@@ -319,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Billentyűparancsok (R: reset camera, Space: forgás megállítása/indítása, M: hang némítása)
+  // Billentyűparancsok (R: reset camera, Space: forgás, M: hang, S: beállítások, Esc: bezárás)
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyR') {
       engine.resetCamera();
@@ -328,6 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (el.btnToggleRotate) el.btnToggleRotate.click();
     } else if (e.code === 'KeyM') {
       if (el.btnToggleSound) el.btnToggleSound.click();
+    } else if (e.code === 'KeyS') {
+      toggleSettings();
+    } else if (e.code === 'Escape') {
+      closeSettings();
     }
   });
 
