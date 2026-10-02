@@ -149,10 +149,32 @@ def parse_single_json(fpath: Path) -> tuple[dict, dict]:
     raw_authors = doc.get("authors") or []
     clean_authors = [a.strip() for a in raw_authors if a and isinstance(a, str) and a.strip()]
 
-    strat_present = bool(strategy.get("present") or (strategy.get("family") and strategy.get("family") != "None") or strategy.get("has_concrete_strategy"))
-    strat_family = strategy.get("family") or ("Kvant Stratégia" if strat_present else "Elméleti Modell")
+    # V3 Cross-Domain Transfer adatok kinyerése
+    cross_domain = data.get("cross_domain_transfer") or {}
+    is_direct_finance = cross_domain.get("is_direct_finance")
+    if is_direct_finance is None:
+        # Visszamenőleges kompatibilitási heurisztika
+        domains = (data.get("classification") or {}).get("domains") or []
+        non_fin = {"Astrophysics", "Cosmology", "Astronomy", "Physics", "FluidDynamics", "CondensedMatter", "QuantumPhysics"}
+        is_direct_finance = not any(d in non_fin for d in domains)
+
+    primary_discipline = cross_domain.get("primary_discipline") or doc.get("primary_discipline") or ("QuantitativeFinance" if is_direct_finance else "CrossDisciplinaryScience")
+    transferability = cross_domain.get("transferability_score") or ("DirectFinance" if is_direct_finance else "None")
+    trading_ideas = cross_domain.get("trading_ideas") or []
+    analogies = cross_domain.get("analogies_to_finance") or {}
+    transferable_methods = cross_domain.get("transferable_methodologies") or []
+    applicable_areas = cross_domain.get("applicable_financial_areas") or []
+
+    strat_present = bool(strategy.get("present") or (strategy.get("family") and strategy.get("family") not in ("None", "N/A", "")) or strategy.get("has_concrete_strategy"))
+    if strat_present:
+        strat_family = strategy.get("family") or "Kvant Stratégia"
+    else:
+        if is_direct_finance:
+            strat_family = "Elméleti Modell"
+        else:
+            strat_family = f"Kereszt-diszciplináris Modell ({primary_discipline})"
     if strat_family == "None":
-        strat_family = "Elméleti Modell"
+        strat_family = "Elméleti Modell" if is_direct_finance else f"Kereszt-diszciplináris Modell ({primary_discipline})"
 
     clean_assets = [ac.strip() for ac in (markets.get("asset_classes") or []) if ac and isinstance(ac, str)]
     clean_keywords = [kw.strip() for kw in (doc.get("keywords") or []) if kw and isinstance(kw, str)]
@@ -181,6 +203,14 @@ def parse_single_json(fpath: Path) -> tuple[dict, dict]:
         "annual_return": performance.get("annualized_return") or performance.get("cagr") or performance.get("total_return"),
         "max_drawdown": performance.get("max_drawdown"),
         "win_rate": performance.get("win_rate"),
+        "is_direct_finance": is_direct_finance,
+        "primary_discipline": primary_discipline,
+        "transferability": transferability,
+        "cross_domain": cross_domain,
+        "trading_ideas": trading_ideas,
+        "analogies": analogies,
+        "transferable_methods": transferable_methods,
+        "applicable_areas": applicable_areas,
         "doc": doc,
         "research": research,
         "strategy": strategy,
@@ -214,7 +244,11 @@ def parse_single_json(fpath: Path) -> tuple[dict, dict]:
         "sharpe_ratio": performance.get("sharpe_ratio"),
         "annual_return": performance.get("annualized_return") or performance.get("cagr") or performance.get("total_return"),
         "formula_count": len(formulas),
-        "findings_count": len(findings)
+        "findings_count": len(findings),
+        "is_direct_finance": is_direct_finance,
+        "primary_discipline": primary_discipline,
+        "transferability": transferability,
+        "trading_ideas_count": len(trading_ideas)
     }
 
     return paper_obj, manifest_summary
@@ -240,6 +274,9 @@ def render_paper_markdown(p: dict) -> str:
     md.append(f'arxiv_id: "{yaml_escape(p["arxiv_id"])}"')
     md.append(f'title: "{yaml_escape(p["title"])}"')
     md.append(f'publication_year: {p["year"] if p["year"].isdigit() else "null"}')
+    md.append(f'is_direct_finance: {str(p["is_direct_finance"]).lower()}')
+    md.append(f'primary_discipline: "{yaml_escape(p["primary_discipline"])}"')
+    md.append(f'transferability: "{yaml_escape(p["transferability"])}"')
     md.append(f'has_strategy: {str(p["has_strategy"]).lower()}')
     md.append(f'strategy_family: "{yaml_escape(p["strategy_family"])}"')
     md.append(f'reproducibility: "{yaml_escape(p["reproducibility"])}"')
@@ -266,8 +303,15 @@ def render_paper_markdown(p: dict) -> str:
         md.append("  - strategy")
         fam_tag = re.sub(r'[^a-zA-Z0-9]', '-', p["strategy_family"].lower())
         md.append(f"  - strategy/{fam_tag}")
-    else:
+    elif p["is_direct_finance"]:
         md.append("  - theoretical-model")
+    else:
+        md.append("  - cross-disciplinary-quant")
+        disc_tag = re.sub(r'[^a-zA-Z0-9]', '-', p["primary_discipline"].lower())
+        md.append(f"  - discipline/{disc_tag}")
+        if p["transferability"]:
+            tr_tag = re.sub(r'[^a-zA-Z0-9]', '-', p["transferability"].lower())
+            md.append(f"  - transferability/{tr_tag}")
     for ac in p["asset_classes"][:2]:
         ac_tag = re.sub(r'[^a-zA-Z0-9]', '-', ac.lower())
         md.append(f"  - asset/{ac_tag}")
@@ -284,8 +328,15 @@ def render_paper_markdown(p: dict) -> str:
         meta_parts.append(f"**Szerzők:** {', '.join(auth_links)}")
     if p["year"] != "Ismeretlen":
         meta_parts.append(f"**Év:** [[Years/{p['year']}|{p['year']}]]")
-    strat_link = f"[[Strategies/{sanitize_name(p['strategy_family'])}|{p['strategy_family']}]]"
-    meta_parts.append(f"**Stratégia:** {strat_link}")
+
+    if p["is_direct_finance"]:
+        strat_link = f"[[Strategies/{sanitize_name(p['strategy_family'])}|{p['strategy_family']}]]"
+        meta_parts.append(f"**Stratégia:** {strat_link}")
+    else:
+        disc_link = f"[[Disciplines/{sanitize_name(p['primary_discipline'])}|{p['primary_discipline']}]]"
+        meta_parts.append(f"**Diszciplína:** {disc_link}")
+        meta_parts.append(f"**Transzfer:** `{p['transferability']}`")
+
     meta_parts.append(f"[arXiv:{p['arxiv_id']}](https://arxiv.org/abs/{p['arxiv_id']})")
     meta_parts.append("[[ _Home | 🏠 Főoldal ]]")
     md.append(" • ".join(meta_parts))
@@ -295,6 +346,53 @@ def render_paper_markdown(p: dict) -> str:
     if p["asset_classes"]:
         asset_links = [f"[[Assets/{sanitize_name(ac)}|{ac}]]" for ac in p["asset_classes"]]
         md.append(f"> **Kereskedett Eszközök:** {' '.join(asset_links)}")
+        md.append("")
+
+    # Kereszt-diszciplináris Kvant & Kereskedési Transzfer Callout
+    has_transfer_content = bool(not p["is_direct_finance"] or p.get("trading_ideas") or p.get("transferable_methods") or p.get("analogies", {}).get("scientific_concept"))
+    if has_transfer_content:
+        md.append("> [!tip] 💡 Kereszt-diszciplináris Kvant & Kereskedési Transzfer Ötlet")
+        disc_link = f"[[Disciplines/{sanitize_name(p['primary_discipline'])}|{p['primary_discipline']}]]"
+        md.append(f"> **Elsődleges Tudományág:** {disc_link} • **Transzferálhatósági Becslés:** **{p['transferability']}**")
+        md.append("> ")
+
+        an = p.get("analogies") or {}
+        sc = an.get("scientific_concept")
+        fc = an.get("financial_market_analogy") or an.get("financial_concept")
+        mr = an.get("mapping_rationale")
+        if sc or fc:
+            md.append("> #### 🔬 Tudományos Jelenség ➔ 📈 Pénzügyi Piaci Analógia")
+            if sc: md.append(f"> - **Tudományos fogalom:** {sc}")
+            if fc: md.append(f"> - **Pénzügyi analógia:** {fc}")
+            if mr: md.append(f"> - **Leképezési logika:** {mr}")
+            md.append("> ")
+
+        tms = p.get("transferable_methods") or []
+        if tms:
+            md.append("> #### 🛠️ Átvehető Kvantitatív Módszerek & Eszközök")
+            for tm in tms:
+                md.append(f"> - {tm}")
+            md.append("> ")
+
+        areas = p.get("applicable_areas") or []
+        if areas:
+            md.append(f"> **Alkalmazható Pénzügyi Területek:** {', '.join(f'`{ar}`' for ar in areas)}")
+            md.append("> ")
+
+        tideas = p.get("trading_ideas") or []
+        if tideas:
+            md.append("> #### ⚡ Konkrét Kereskedési & Alfa Hipotézisek")
+            for tid in tideas:
+                if isinstance(tid, dict):
+                    tname = tid.get("title") or tid.get("idea_name") or "Alfa Hipotézis"
+                    thyp = tid.get("hypothesis") or ""
+                    timpl = tid.get("suggested_implementation") or tid.get("implementation_sketch") or ""
+                    md.append(f"> - **{tname}**: {thyp}")
+                    if timpl:
+                        md.append(f">   - _Megvalósítás:_ {timpl}")
+                else:
+                    md.append(f"> - {tid}")
+            md.append("> ")
         md.append("")
 
     # Kutatási Kérdés & Hipotézis Callout-ok
@@ -500,6 +598,7 @@ def build_vault(force_full: bool = False, verbose: bool = True) -> dict:
         VAULT_DIR / "Papers",
         VAULT_DIR / "Authors",
         VAULT_DIR / "Strategies",
+        VAULT_DIR / "Disciplines",
         VAULT_DIR / "Assets",
         VAULT_DIR / "Years",
         VAULT_DIR / "Topics",
@@ -596,6 +695,7 @@ def build_vault(force_full: bool = False, verbose: bool = True) -> dict:
         "keywords": Counter()
     })
     strategies_map = defaultdict(lambda: {"papers": []})
+    disciplines_map = defaultdict(lambda: {"papers": []})
     assets_map = defaultdict(lambda: {"papers": []})
     years_map = defaultdict(lambda: {"papers": []})
     topics_map = defaultdict(lambda: {"papers": []})
@@ -608,6 +708,10 @@ def build_vault(force_full: bool = False, verbose: bool = True) -> dict:
         all_papers_list.append(sm)
         total_formulas += sm.get("formula_count", 0)
         total_findings += sm.get("findings_count", 0)
+
+        # Diszciplínák (Tudományágak)
+        disc = sm.get("primary_discipline") or ("QuantitativeFinance" if sm.get("is_direct_finance", True) else "CrossDisciplinaryScience")
+        disciplines_map[disc]["papers"].append(sm)
 
         # Szerzők & Társszerzők
         authors = sm.get("authors") or []
@@ -815,6 +919,36 @@ def build_vault(force_full: bool = False, verbose: bool = True) -> dict:
         with open(VAULT_DIR / "Topics" / topic_filename, "w", encoding="utf-8") as tf:
             tf.write("\n".join(md))
 
+    # ── Tudományágak Mentése (Disciplines) ──
+    for disc, ddata in disciplines_map.items():
+        disc_filename = f"{sanitize_name(disc)}.md"
+        d_papers = ddata["papers"]
+
+        md = []
+        md.append("---")
+        md.append("type: discipline")
+        md.append(f'discipline: "{yaml_escape(disc)}"')
+        md.append(f"paper_count: {len(d_papers)}")
+        md.append("tags:")
+        md.append("  - discipline")
+        md.append("---")
+        md.append("")
+        md.append(f"# 🔬 {disc} Tudományág")
+        md.append("")
+        md.append(f"[[ _Home | 🏠 Főoldal ]] • **Kapcsolódó kutatások:** {len(d_papers)} db")
+        md.append("")
+        md.append(f"## 📑 Kapcsolódó Tanulmányok & Kvant Transzferek ({len(d_papers)})")
+        sorted_dp = sorted(d_papers, key=lambda x: (x.get("year", "0") if x.get("year", "").isdigit() else "0"), reverse=True)
+        for p in sorted_dp:
+            strat_pill = f"[[Strategies/{sanitize_name(p['strategy_family'])}|{p['strategy_family']}]]"
+            trans_pill = f" (Transzfer: **{p.get('transferability', 'N/A')}**)" if p.get('transferability') else ""
+            year_pill = f"[[Years/{p['year']}|{p['year']}]]" if p.get('year') != "Ismeretlen" else ""
+            md.append(f"- [[{p['rel_link']}|{p['title']}]] ({year_pill}) — {strat_pill}{trans_pill}")
+        md.append("")
+
+        with open(VAULT_DIR / "Disciplines" / disc_filename, "w", encoding="utf-8") as df:
+            df.write("\n".join(md))
+
     # ── Központi Kezdőlap (_Home.md) ──
     home_md = []
     home_md.append("---")
@@ -836,10 +970,19 @@ def build_vault(force_full: bool = False, verbose: bool = True) -> dict:
     home_md.append("| Kategória | Darabszám | Leírás |")
     home_md.append("| :--- | :--- | :--- |")
     home_md.append(f"| **Tanulmányok (Papers)** | `{len(all_papers_list)} db` | Kérdésekkel, hipotézisekkel, képletekkel és szabályokkal |")
+    home_md.append(f"| **Tudományágak (Disciplines)** | `{len(disciplines_map)} diszciplína` | Fizika, asztrofizika, kvant pénzügy és komplex rendszerek |")
     home_md.append(f"| **Kutatók & Szerzők (Authors)** | `{len(authors_map)} fő` | Kapcsolati és társszerzői hálózattal |")
     home_md.append(f"| **Képletek & Modellek (Formulas)** | `{total_formulas} db` | LaTeX levezetésekkel és változókkal |")
     home_md.append(f"| **Tudományos Megállapítások** | `{total_findings} db` | Igazolt állítások és tételek |")
     home_md.append(f"| **Kvant Stratégiák (Strategies)** | `{sum(1 for p in all_papers_list if p.get('has_strategy'))} db` | Szisztematikus kereskedési rendszerek |")
+    home_md.append("")
+
+    # Tudományágak
+    home_md.append("## 🔬 Tudományágak & Kereszt-diszciplináris Transzfer")
+    sorted_discs = sorted(disciplines_map.items(), key=lambda x: len(x[1]["papers"]), reverse=True)
+    for d_name, d_data in sorted_discs:
+        d_clean = sanitize_name(d_name)
+        home_md.append(f"- [[Disciplines/{d_clean}|{d_name}]] — `{len(d_data['papers'])} tanulmány`")
     home_md.append("")
 
     # Stratégia családok

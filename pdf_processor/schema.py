@@ -39,10 +39,43 @@ STRUCTURAL RULES (from the V1/V2 vault audit):
        Free text belongs in descriptive fields only.
 """
 
-SCHEMA_VERSION = "2.0"
+SCHEMA_VERSION = "3.0"
 
 
 # ─── Controlled vocabularies ─────────────────────────────────────────────────
+
+# Primary scientific discipline of the research
+PRIMARY_DISCIPLINES = [
+    "QuantitativeFinance",      # Direct financial mathematics, asset pricing, trading, microstructure
+    "EconomicsAndEconometrics", # Econometric theory, macroeconomic models, behavioral economics
+    "ComputerScienceAndAI",     # Machine learning, deep learning, algorithms, NLP, reinforcement learning
+    "MathematicsAndStatistics", # Probability, stochastic processes, dynamical systems, numerical analysis
+    "PhysicsAndComplexSystems", # Statistical mechanics, econophysics, nonlinear dynamics, chaos, networks
+    "AstrophysicsAndCosmology", # Astronomy, celestial mechanics, spatial clustering, luminosity, point processes
+    "InterdisciplinaryScience", # Systems biology, geosciences, engineering, general quantitative methodology
+]
+
+# Transferability score of non-finance or foundational quantitative research to trading & financial modeling
+TRANSFERABILITY_SCORES = [
+    "DirectFinance",            # Directly about financial markets, assets, or trading
+    "HighTransferability",      # Core mathematical/algorithmic tools directly applicable to quant trading
+    "MethodologicalAnalogy",    # Methods/models can be ported via structural analogy (e.g. spatial clustering)
+    "ConceptualInspiration",    # Provides theoretical or conceptual analogies for alphas or risk
+    "PurelyDomainSpecific",     # Purely specific to its own scientific domain with minimal finance overlap
+]
+
+# Financial areas where cross-disciplinary methods can be applied
+APPLICABLE_FINANCIAL_AREAS = [
+    "MarketMicrostructure",     # Order books, liquidity clustering, point processes
+    "StatisticalArbitrage",     # Pairs trading, cointegration, multi-asset clustering
+    "PortfolioConstruction",    # Risk parity, graph theory, clustering of correlation matrices
+    "VolatilityAndRisk",        # Power-law tails, extreme value theory, regime transitions
+    "AlgorithmicExecution",     # Optimal execution, inventory control, diffusion equations
+    "AlphaGeneration",          # Factor research, cross-sectional anomaly detection
+    "SignalProcessingAndNoise", # Wavelet filtering, spectral analysis, noise reduction
+    "DynamicRegimeDetection",   # Phase transitions, hidden Markov models, percolation
+    "Other",
+]
 
 # Main contribution of the paper (what the paper IS, not what it is about;
 # subject areas go to classification.domains)
@@ -52,12 +85,13 @@ PAPER_TYPES = [
     "Method",          # proposes/extends a method, estimator, or algorithm
     "Theory",          # theoretical/axiomatic results
     "EmpiricalStudy",  # primarily empirical evidence (regressions, event studies)
+    "Observation",     # observational catalogue, survey, astronomical/physical measurements
     "Dataset",         # introduces a dataset or data resource
     "Benchmark",       # systematic comparison/benchmark of models or methods
     "SoftwareLibrary", # introduces software/tooling
     "Survey",          # literature review / survey
     "Other",
-    "OutOfScope",      # no finance/economics or transferable quantitative content
+    "OutOfScope",      # completely non-quantitative, non-scientific content
 ]
 
 # Subject areas (choose all that apply)
@@ -76,7 +110,10 @@ DOMAINS = [
     "Econophysics", "MarketSimulation", "AgentBasedModeling",
     "TextMiningFinance", "CryptocurrencyFinance", "DeFi",
     "EnergyMarkets", "CommodityMarkets", "FixedIncome", "Credit",
-    "Mathematics", "Other",
+    "Mathematics", "Astrophysics", "Cosmology", "Astronomy",
+    "StatisticalPhysics", "NonlinearDynamics", "ComplexSystems",
+    "CondensedMatter", "QuantumPhysics", "NetworkTheory",
+    "FluidDynamics", "HighEnergyPhysics", "Other",
 ]
 
 # What the paper contributes (research.contributions[].type)
@@ -327,6 +364,27 @@ def get_empty_schema() -> dict:
             "in_scope": None,
             "domains": [],
             "concepts": []
+        },
+
+        "cross_domain_transfer": {
+            "is_direct_finance": True,
+            "primary_discipline": "QuantitativeFinance",
+            "transferability_score": "DirectFinance",
+            "scientific_domain_details": None,
+            "analogies_to_finance": {
+                "scientific_concept": None,
+                "financial_market_analogy": None
+            },
+            "transferable_methodologies": [],
+            "trading_ideas": [
+                {
+                    "title": None,
+                    "hypothesis": None,
+                    "suggested_implementation": None,
+                    "applicable_areas": []
+                }
+            ],
+            "applicable_financial_areas": []
         },
 
         "entities": {
@@ -920,6 +978,9 @@ def to_v1(v2: dict) -> dict:
         ],
 
         "source_references": g(v2, "source_references", default=[]),
+
+        "cross_domain_transfer": g(v2, "cross_domain_transfer", default={}),
+        "primary_discipline": g(v2, "cross_domain_transfer", "primary_discipline", default="QuantitativeFinance"),
 
         "extraction": {
             "confidence": g(v2, "extraction", "confidence"),

@@ -134,6 +134,9 @@ class Database:
                 formula_count INTEGER DEFAULT 0,
                 findings_count INTEGER DEFAULT 0,
                 research_question TEXT,
+                primary_discipline TEXT,
+                transferability TEXT,
+                trading_ideas TEXT,
                 file_mtime REAL,
                 updated_at TEXT
             )
@@ -150,6 +153,12 @@ class Database:
                 cursor.execute("ALTER TABLE research_library ADD COLUMN findings_count INTEGER DEFAULT 0")
             if "research_question" not in lib_cols:
                 cursor.execute("ALTER TABLE research_library ADD COLUMN research_question TEXT")
+            if "primary_discipline" not in lib_cols:
+                cursor.execute("ALTER TABLE research_library ADD COLUMN primary_discipline TEXT")
+            if "transferability" not in lib_cols:
+                cursor.execute("ALTER TABLE research_library ADD COLUMN transferability TEXT")
+            if "trading_ideas" not in lib_cols:
+                cursor.execute("ALTER TABLE research_library ADD COLUMN trading_ideas TEXT")
         except Exception:
             pass
 
@@ -896,6 +905,17 @@ class Database:
             formula_count = len(data.get("formulas") or [])
             findings_count = len(data.get("key_findings") or [])
             keywords = json.dumps(doc.get("keywords") or [], ensure_ascii=False)
+
+            # V3 Cross-Domain and Discipline parsing
+            cdt = data.get("cross_domain_transfer", {}) or {}
+            is_direct_fin = cdt.get("is_direct_finance")
+            primary_discipline = cdt.get("primary_discipline") or doc.get("primary_discipline")
+            if not primary_discipline:
+                primary_discipline = "QuantitativeFinance" if (has_strategy or is_direct_fin is not False) else "CrossDisciplinaryScience"
+            transferability = cdt.get("transferability_score") or ("DirectFinance" if (has_strategy or is_direct_fin is not False) else "None")
+            trading_ideas_raw = cdt.get("trading_ideas") or []
+            trading_ideas = json.dumps(trading_ideas_raw, ensure_ascii=False) if trading_ideas_raw else ""
+
             now_iso = datetime.now(timezone.utc).isoformat()
 
             return (
@@ -921,6 +941,9 @@ class Database:
                 formula_count,
                 findings_count,
                 research_question,
+                primary_discipline,
+                transferability,
+                trading_ideas,
                 mtime,
                 now_iso
             )
@@ -961,8 +984,9 @@ class Database:
                         reproducibility, live_deployment, sharpe_ratio, annual_return,
                         max_drawdown, win_rate, abstract, hypothesis, keywords,
                         formula_count, findings_count, research_question,
+                        primary_discipline, transferability, trading_ideas,
                         file_mtime, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, batch)
                 self.conn.commit()
 
@@ -984,8 +1008,9 @@ class Database:
                     reproducibility, live_deployment, sharpe_ratio, annual_return,
                     max_drawdown, win_rate, abstract, hypothesis, keywords,
                     formula_count, findings_count, research_question,
+                    primary_discipline, transferability, trading_ideas,
                     file_mtime, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, item_tuple)
             self.conn.commit()
 
@@ -1007,6 +1032,15 @@ class Database:
                 ORDER BY cnt DESC
             """)
             families = [{"family": r[0], "count": r[1]} for r in cur.fetchall()]
+
+            cur.execute("""
+                SELECT primary_discipline, count(*) as cnt
+                FROM research_library
+                WHERE primary_discipline IS NOT NULL AND primary_discipline != ''
+                GROUP BY primary_discipline
+                ORDER BY cnt DESC
+            """)
+            disciplines = [{"discipline": r[0], "count": r[1]} for r in cur.fetchall()]
 
             cur.execute("""
                 SELECT asset_classes FROM research_library
@@ -1040,12 +1074,13 @@ class Database:
                 "has_strategy_count": has_strategy_count,
                 "formulas_count": formulas_count,
                 "families": families,
+                "disciplines": disciplines,
                 "asset_classes": asset_classes,
                 "years": years
             }
 
     def query_library(self, page: int = 1, limit: int = 24, search: str = "",
-                      family: str = "", asset_class: str = "",
+                      family: str = "", asset_class: str = "", discipline: str = "",
                       has_strategy: str = "", reproducibility: str = "",
                       sort_by: str = "year_desc") -> dict:
         """
@@ -1069,13 +1104,19 @@ class Database:
                 keywords LIKE ? OR
                 abstract LIKE ? OR
                 hypothesis LIKE ? OR
-                research_question LIKE ?
+                research_question LIKE ? OR
+                primary_discipline LIKE ? OR
+                trading_ideas LIKE ?
             )""")
-            params.extend([s, s, s, s, s, s, s, s])
+            params.extend([s, s, s, s, s, s, s, s, s, s])
 
         if family:
             where_clauses.append("strategy_family = ?")
             params.append(family)
+
+        if discipline:
+            where_clauses.append("primary_discipline = ?")
+            params.append(discipline)
 
         if asset_class:
             where_clauses.append("asset_classes LIKE ?")
@@ -1117,7 +1158,8 @@ class Database:
                        has_strategy, strategy_family, strategy_name, asset_classes,
                        reproducibility, live_deployment, sharpe_ratio, annual_return,
                        max_drawdown, win_rate, abstract, hypothesis, keywords, updated_at,
-                       formula_count, findings_count, research_question
+                       formula_count, findings_count, research_question,
+                       primary_discipline, transferability, trading_ideas
                 FROM research_library
                 {where_sql}
                 ORDER BY {order_sql}
@@ -1143,6 +1185,10 @@ class Database:
                     keywords = json.loads(r[18]) if r[18] else []
                 except Exception:
                     keywords = []
+                try:
+                    trading_ideas = json.loads(r[25]) if (len(r) > 25 and r[25]) else []
+                except Exception:
+                    trading_ideas = []
 
                 items.append({
                     "file_name": r[0],
@@ -1167,7 +1213,10 @@ class Database:
                     "updated_at": r[19],
                     "formula_count": r[20] or 0,
                     "findings_count": r[21] or 0,
-                    "research_question": r[22] or ""
+                    "research_question": r[22] or "",
+                    "primary_discipline": r[23] if len(r) > 23 and r[23] else "QuantitativeFinance",
+                    "transferability": r[24] if len(r) > 24 and r[24] else "DirectFinance",
+                    "trading_ideas": trading_ideas
                 })
 
             return {

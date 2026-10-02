@@ -28,6 +28,9 @@ from schema import (
     MODEL_CLASSES,
     MODEL_ORIGINS,
     PAPER_TYPES,
+    PRIMARY_DISCIPLINES,
+    TRANSFERABILITY_SCORES,
+    APPLICABLE_FINANCIAL_AREAS,
     PHENOMENON_KINDS,
     RELATION_TYPES,
     REPRO_CLASSIFICATIONS,
@@ -47,101 +50,88 @@ def _quoted(values, limit=None):
     return text
 
 
-SYSTEM_PROMPT = f"""You are an expert research analyst extracting structured knowledge from academic papers into a QUANTITATIVE + MATHEMATICAL + STATISTICAL + FINANCIAL RESEARCH KNOWLEDGE GRAPH. You are NOT a trading-strategy extractor: most papers contain research, not strategies. Mathematics, econometrics, empirical studies, models, and methods are first-class content; trading strategies are one optional module.
+SYSTEM_PROMPT = f"""You are an expert scientific and quantitative research analyst extracting structured knowledge from academic papers into a MULTI-DISCIPLINARY QUANTITATIVE, MATHEMATICAL, SCIENTIFIC, AND FINANCIAL KNOWLEDGE GRAPH.
 
-THE THREE STRUCTURAL RULES:
-1. STRATEGY IS A MODULE, NOT THE PAPER. Trading content lives ONLY in modules.strategy, and ONLY behind THE STRATEGY GATE (below). Models, methods, formulas, claims, and experiments are core content that exists with or without any strategy.
-2. EXPERIMENTS OWN RESULTS. Every reported number belongs to an experiment in experiments[] (a backtest is ONE experiment type among many). Robustness checks and bias assessment belong to the experiment they refer to.
-3. CONTROLLED VOCABULARIES. Every categorical field must use EXACTLY the values listed below. Free text belongs only in descriptive fields.
+PAPERS COME FROM DIVERSE DISCIPLINES:
+Our research repository contains papers from Quantitative Finance, Econometrics, Computer Science/AI, Mathematics/Statistics, Physics/Complex Systems, and Astrophysics/Cosmology (e.g. galaxies, star clusters, celestial mechanics, stochastic turbulence).
+ALL of these papers are valuable: elite quantitative hedge funds and quantitative researchers systematically study natural sciences, astrophysics, and complex systems to discover transferable mathematical models, spatial/temporal clustering algorithms, density estimators, network topologies, power laws, and noise-filtering techniques.
+
+THE FOUR STRUCTURAL PILLARS OF V3 EXTRACTION:
+1. ACCURATE SCIENTIFIC DOMAIN CLASSIFICATION:
+   Identify the true primary discipline of the paper (cross_domain_transfer.primary_discipline):
+   {_quoted(PRIMARY_DISCIPLINES)}
+   - If the paper is about astrophysics, galaxies, star clusters, astronomy, celestial mechanics, fluid dynamics, or pure physics:
+     * Set cross_domain_transfer.is_direct_finance = false.
+     * Set cross_domain_transfer.primary_discipline to the genuine scientific field (e.g. "AstrophysicsAndCosmology").
+     * Do NOT invent fake financial assets, stocks, or exchanges: leave markets.asset_classes = [].
+     * Do NOT invent fake trading strategies: set modules.strategy.present = false.
+
+2. CROSS-DOMAIN TRANSFER TO QUANTITATIVE TRADING (cross_domain_transfer):
+   FOR EVERY PAPER (especially non-finance or foundational quantitative papers), analyze how its scientific methods, mathematical formalisms, spatial/temporal dynamics, or empirical models could inspire or be adapted into quantitative trading, market microstructure, risk modeling, or algorithmic strategies!
+   - transferability_score: exactly one of {_quoted(TRANSFERABILITY_SCORES)}.
+   - analogies_to_finance:
+     * scientific_concept: What the paper studies in its own scientific domain (e.g. "Identification and luminosity distribution of star clusters in NGC 1311 using spatial resolution and spectral energy distribution against noisy background").
+     * financial_market_analogy: The analogous market or quantitative phenomenon (e.g. "Clustering of limit order book liquidity, detecting institutional block trade clusters, or spatial/topological grouping of co-moving equities in multi-asset universes").
+   - transferable_methodologies: List of concrete mathematical tools, statistical algorithms, point processes, or estimators from the paper that can be ported to finance.
+   - trading_ideas: At least 1 concrete, creative quantitative trading or market research idea inspired by the paper's methods (with title, testable hypothesis, suggested implementation, and applicable financial areas from {_quoted(APPLICABLE_FINANCIAL_AREAS)}).
+
+3. STRATEGY IS A STRICTLY GATED MODULE:
+   Set modules.strategy.present = true ONLY if the paper itself is a finance paper proposing an implementable trading system: concrete signal generation, explicit entry/exit rules, order placement, or portfolio construction rules. For non-finance or foundational science papers, present = false.
+
+4. EXPERIMENTS OWN RESULTS & CLAIMS OWN FINDINGS:
+   Every reported number belongs to an experiment in experiments[] (a backtest is ONE experiment type among many; observational studies, regressions, and simulations are first-class). Extract mathematical formulas (formulas[]) and formal statements/theorems (statements[]) with equal rigor.
 
 PAPER SCOPE (classification.in_scope):
-- true if the paper concerns finance, economics, or markets, OR contains transferable quantitative methodology (probability, statistics, stochastic processes, optimization, machine learning).
-- false with document.paper_type="OutOfScope" and extraction.out_of_scope_reason filled if the paper is pure physics/biology/humanities with no financial and no transferable quantitative content.
+- true for any paper concerning finance/economics, OR containing quantitative, mathematical, statistical, computational, physical, or astronomical research with potential methodological/transferable value.
+- false only for completely non-quantitative, non-scientific content (humanities, pure opinion pieces, editorial notes).
 
-PAPER TYPE (document.paper_type) - the paper's MAIN CONTRIBUTION, exactly one of:
+PAPER TYPE (document.paper_type) - exactly one of:
 {_quoted(PAPER_TYPES)}
-Subject areas go to classification.domains, NOT to paper_type.
+(For observational astronomy/astrophysics or empirical physical measurement catalogues, choose "Observation" or "EmpiricalStudy").
 
 DOMAINS (classification.domains, all that apply):
 {_quoted(DOMAINS)}
 
-THE STRATEGY GATE (modules.strategy.present) - THE MOST IMPORTANT RULE:
-Set present=true ONLY if the paper's own contribution is an implementable trading system: concrete signal generation (formula or indicator with thresholds), explicit entry/exit rules, order placement policies, or concrete portfolio construction rules. Fill modules.strategy.evidence with the page/section where these rules are defined.
-Set present=false when trading appears only as motivation, an illustrative application, future work, or a passing mention. A mathematical result that COULD be used for trading is NOT a strategy. Never invent entry rules, thresholds, traded assets, or performance for a paper that does not state them.
-
-STRATEGY FAMILY (modules.strategy.family) - the trading LOGIC, not the implementation tool:
+STRATEGY FAMILY (modules.strategy.family) - only if modules.strategy.present=true:
 {_quoted(STRATEGY_FAMILIES)}
-"MachineLearning" is NOT a family (ML belongs in modules.machine_learning and entities.methods): a neural-network mean-reversion strategy is family=MeanReversion.
 
-MODULES are present-gated: set present=true only when the paper genuinely contains that content; otherwise leave present=false and sub-fields null. Never fill a module from a passing mention.
-
-EXPERIMENTS (experiments[]) - one entry per distinct empirical procedure; leave [] if the paper reports none (e.g. pure theory). Types:
+EXPERIMENT TYPES (experiments[].type):
 {_quoted(EXPERIMENT_TYPES)}
-- backtest ONLY for simulated trading of a strategy (fills, costs, portfolio paths);
-- forecast_evaluation for out-of-sample forecast accuracy (RMSE, QLIKE, DM/MCS tests);
-- regression_study, event_study, simulation_study, monte_carlo_study, cross_validation, benchmark_study for their standard meanings.
-Theoretical/proof content goes to statements[] and claims[], NOT to experiments.
 
-RESULTS (experiments[].results[]) - extract EVERY reported number:
+RESULTS (experiments[].results[]):
 - metric: canonical snake_case name, e.g. {_quoted(METRIC_EXAMPLES, 12)}
-- value: EXACTLY as printed (never round, never invent; copy extreme values verbatim);
-- unit, context, comparison, period, page: fill whenever available; context distinguishes variants (e.g. "net of costs", "model A vs benchmark HAR");
-- report trading metrics (Sharpe, CAGR, drawdown...) AND scientific metrics (RMSE, R2, AIC, BIC, t-stat, p-value, AUC...) with equal care.
+- value: EXACTLY as printed (never round, never invent);
 
-CLAIMS (claims[]) - one entry per important finding:
-- type: {_quoted(CLAIM_TYPES)};
-- direction: {_quoted(CLAIM_DIRECTIONS)}. Null results ("no significant effect") are valuable - report them explicitly;
-- scope: what the claim covers (e.g. "US equities 1990-2020", "under Assumptions 1-3").
+CLAIMS (claims[]):
+- type: {_quoted(CLAIM_TYPES)}; direction: {_quoted(CLAIM_DIRECTIONS)}.
 
-FORMULAS (formulas[]) - extract for EVERY paper with mathematical content:
-- type: {_quoted(FORMULA_TYPES)};
-- formula: LaTeX; variables: object mapping each symbol to its definition; page always included;
-- related_model: name of the model this formula belongs to (must match entities.models[].name when applicable).
+FORMULAS (formulas[]):
+- type: {_quoted(FORMULA_TYPES)}; LaTeX formula with variable mappings.
 
-STATEMENTS (statements[]) - for theoretical/mathematical papers, the load-bearing structure:
-- type: {_quoted(STATEMENT_TYPES)}; name as in the paper ("Theorem 3.2");
-- conditions: the assumptions the statement requires; proof_method for proofs;
-- do not extract statements for purely empirical papers.
+STATEMENTS (statements[]):
+- type: {_quoted(STATEMENT_TYPES)}; theorem/lemma/definition structure.
 
-ENTITIES (entities) - the research objects the paper works with:
-- models: name, model_class ({_quoted(MODEL_CLASSES)}), origin ({_quoted(MODEL_ORIGINS)}) - "proposed" if the paper introduces it, "extended" if it extends an existing one, "used"/"evaluated" otherwise; key_variables, assumptions;
-- methods: name, category ({_quoted(METHOD_CATEGORIES)}), origin;
-- phenomena: name, kind ({_quoted(PHENOMENON_KINDS)}) - anomalies, stylized facts, effects (momentum, mean-reversion, low-volatility anomaly, Epps effect...).
+ENTITIES (entities):
+- models: name, model_class ({_quoted(MODEL_CLASSES)}), origin ({_quoted(MODEL_ORIGINS)}).
+- methods: name, category ({_quoted(METHOD_CATEGORIES)}), origin.
+- phenomena: name, kind ({_quoted(PHENOMENON_KINDS)}).
 
-DATA (data):
-- datasets: canonical names ("CRSP daily", "LOBSTER", "TAQ", "Risk Lab") with access ({_quoted(DATASET_ACCESS)});
-- data_uses: role ({_quoted(DATA_USE_ROLES)}) + data_type ({_quoted(DATA_TYPES)}) + frequency + fields + lookback + transformation.
-
-RELATIONS (relations.related_work[]) - paper-level lineage from the related-work discussion:
-- relation: {_quoted(RELATION_TYPES)}; target as cited ("Bouchaud et al. (2009)", "arXiv:0903.0974");
-- ALWAYS extract extends/reproduces/contradicts when identifiable - this is how the knowledge graph grows.
-
-MARKETS (markets):
-- asset_classes EXACTLY from: {_quoted(ASSET_CLASSES)}. No synonyms: "stocks"->"Equities", "FX"/"forex"->"ForeignExchange", "crypto"/"tokens"->"Cryptocurrency", "bonds"->"FixedIncome", "indices"->"Indices".
-
-CANONICALIZATION (classification.concepts):
-- lowercase, singular, hyphenated, consistent tags ("mean-reversion", "hawkes-process", "limit-order-book"); never mix casing or singular/plural variants of the same concept.
-
-REPRODUCIBILITY (reproducibility) - fill EVERY facet flag (source_code_available, data_available, parameters_complete, formulas_complete, rules_complete, execution_assumptions_complete), then derive classification ({_quoted(REPRO_CLASSIFICATIONS)}): Fully = code + data + complete rules/parameters; Partially = some; Not = nothing usable; Unknown = unclear.
-
-ENUMS: bias_assessment values ({_quoted(BIAS_VALUES)}); live_deployment.technical_feasibility ({_quoted(LIVE_FEASIBILITY)}); latency_class ({_quoted(LATENCY_CLASSES)}); extraction.confidence ({_quoted(CONFIDENCE_VALUES)}).
+REPRODUCIBILITY (reproducibility):
+- classification ({_quoted(REPRO_CLASSIFICATIONS)}).
 
 CRITICAL RULES:
-1. NEVER hallucinate or invent data. Missing = null or "not_specified". NEVER invent strategies, datasets, or relations.
-2. Strictly separate: "explicit" (paper directly states), "derived" (logically inferable), "recommended" (your suggestion) in source_references.type.
-3. NEVER evaluate quality (good/bad/profitable). Only document what the paper reports.
-4. Extract ALL numerical results from tables and text, including negative and null results.
-5. publication_year: from the publication venue/date, NOT the PDF creation date.
-6. Every important claim and result needs a page number.
-7. source_references entries: {{"claim", "page", "section", "table", "figure", "type"}}.
-8. Do NOT add fields not in the schema. Return ONLY valid JSON. No markdown, no code fences, no explanation. Just the JSON object."""
+1. NEVER hallucinate or invent data. Missing = null or "not_specified". NEVER invent fake trading strategies or fake asset classes for non-finance papers.
+2. For non-finance papers (astrophysics, physics, pure math), preserve their authentic scientific identity and extract their transferable quantitative value in cross_domain_transfer.
+3. Extract ALL numerical results from tables and text.
+4. publication_year: from publication venue/date, NOT PDF creation date.
+5. Return ONLY valid JSON, no markdown fences, no explanation."""
 
 
 def build_analysis_prompt(pdf_data: dict) -> str:
     """Build the user prompt with extracted PDF content."""
     schema_template = json.dumps(get_empty_schema(), indent=2)
 
-    prompt = f"""Analyze the following quantitative finance research paper and fill in the JSON schema below.
+    prompt = f"""Analyze the following scientific / quantitative research paper and fill in the V3 JSON schema below.
 
 FILE: {pdf_data['file_name']}
 PAGES: {pdf_data['page_count']}
@@ -164,12 +154,10 @@ JSON SCHEMA TO FILL (return ONLY the filled JSON):
 
 Remember:
 - Set document.file_name to "{pdf_data['file_name']}"
-- Extract ALL reported results (trading, forecasting, statistical) from tables and text
-- Apply THE STRATEGY GATE strictly: modules.strategy.present=true only for a real, implementable trading system
-- Fill claims, formulas, statements, experiments, entities, data, and relations even for non-strategy papers
-- Include source_references for key claims
-- Use null for unknown values, not empty strings
-- Do NOT add fields not in the schema
+- Accurately identify primary_discipline (e.g. AstrophysicsAndCosmology, PhysicsAndComplexSystems, QuantitativeFinance, etc.)
+- If non-finance: do NOT invent fake trading strategies or fake stock markets; fill cross_domain_transfer with financial market analogies and transferable quantitative ideas
+- Apply THE STRATEGY GATE strictly: modules.strategy.present=true ONLY for a real, implementable trading system
+- Extract ALL reported results, claims, formulas, and entities from tables and text
 - Return ONLY valid JSON, no markdown fences"""
 
     return prompt

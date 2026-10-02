@@ -1417,12 +1417,89 @@ el.btnSaveSettings.addEventListener("click", async () => {
 // JSON Viewer Modal
 window.viewJsonModal = async function(fileName) {
   el.jsonModalTitle.textContent = `Kivonat: ${fileName}`;
+  const summaryEl = document.getElementById("json-modal-summary");
+  if (summaryEl) {
+    summaryEl.innerHTML = "";
+    summaryEl.style.display = "none";
+  }
   el.jsonModalPre.textContent = "Betöltés...";
   el.jsonModal.classList.add("open");
   try {
     const res = await fetch(`/api/json-view/${encodeURIComponent(fileName)}`);
     if (!res.ok) throw new Error("JSON nem található");
     const json = await res.json();
+
+    // Render V3 Cross-Domain & Discipline Highlights
+    const cdt = json.cross_domain_transfer || {};
+    const doc = json.document || {};
+    let isDirectFin = cdt.is_direct_finance;
+    if (isDirectFin === undefined) {
+      isDirectFin = !(json.classification && json.classification.domains && json.classification.domains.some(d => ["Astrophysics", "Cosmology", "Astronomy", "Physics", "FluidDynamics"].includes(d)));
+    }
+    const discipline = cdt.primary_discipline || doc.primary_discipline || (isDirectFin ? "QuantitativeFinance" : "CrossDisciplinaryScience");
+    const transferScore = cdt.transferability_score || (isDirectFin ? "DirectFinance" : "N/A");
+    const ideas = cdt.trading_ideas || [];
+    const analogies = cdt.analogies_to_finance || {};
+    const methods = cdt.transferable_methodologies || [];
+
+    if (summaryEl) {
+      let summaryHtml = `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #888;">Tudományág:</span>
+            <span class="badge" style="background: #2a3b5c; color: #7cb9ff; font-weight: 600; padding: 3px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(discipline)}</span>
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #888; margin-left: 8px;">Transzfer Potenciál:</span>
+            <span class="badge" style="background: #2d4838; color: #6ee7b7; font-weight: 600; padding: 3px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(transferScore)}</span>
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #888; margin-left: 8px;">Közvetlen Pénzügy:</span>
+            <span class="badge" style="background: ${isDirectFin ? 'rgba(59,130,246,0.2)' : 'rgba(239,68,68,0.2)'}; color: ${isDirectFin ? '#93c5fd' : '#fca5a5'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">${isDirectFin ? 'Igen' : 'Nem (Kereszt-diszciplináris)'}</span>
+          </div>
+      `;
+
+      if (analogies.scientific_concept || analogies.financial_market_analogy) {
+        summaryHtml += `
+          <div style="margin-top: 10px; font-size: 13px; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+            <div style="color: #93c5fd; font-weight: 600; margin-bottom: 4px;">🔬 Tudományos Fogalom:</div>
+            <div style="color: #ddd; margin-bottom: 8px;">${escapeHtml(analogies.scientific_concept || 'N/A')}</div>
+            <div style="color: #34d399; font-weight: 600; margin-bottom: 4px;">📈 Pénzügyi Piaci Analógia:</div>
+            <div style="color: #ddd;">${escapeHtml(analogies.financial_market_analogy || 'N/A')}</div>
+          </div>
+        `;
+      }
+
+      if (methods && methods.length > 0) {
+        summaryHtml += `
+          <div style="margin-top: 10px; font-size: 12px;">
+            <span style="color: #f59e0b; font-weight: 600;">🛠️ Átvehető Kvant Módszertanok:</span>
+            <ul style="margin: 4px 0 0 18px; padding: 0; color: #ccc;">
+              ${methods.map(m => `<li>${escapeHtml(m)}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      if (ideas && ideas.length > 0) {
+        summaryHtml += `
+          <div style="margin-top: 10px; font-size: 12px;">
+            <span style="color: #a78bfa; font-weight: 600;">⚡ Kereskedési & Alfa Ötletek:</span>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+              ${ideas.map(i => {
+                const title = typeof i === 'string' ? i : (i.title || i.idea_name || 'Ötlet');
+                const hyp = typeof i === 'object' && i.hypothesis ? i.hypothesis : '';
+                return `<div style="background: rgba(167, 139, 250, 0.1); border-left: 3px solid #a78bfa; padding: 6px 10px; border-radius: 4px;">
+                  <strong style="color: #ddd;">${escapeHtml(title)}</strong>
+                  ${hyp ? `<div style="color: #aaa; margin-top: 2px;">${escapeHtml(hyp)}</div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      summaryHtml += `</div>`;
+      summaryEl.innerHTML = summaryHtml;
+      summaryEl.style.display = "block";
+    }
+
     el.jsonModalPre.textContent = JSON.stringify(json, null, 2);
   } catch (e) {
     el.jsonModalPre.textContent = "Hiba a JSON betöltésekor: " + e.message;
