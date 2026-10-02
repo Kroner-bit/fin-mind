@@ -386,8 +386,8 @@ class KnowledgeGraphBuilder:
     def _compute_3d_coordinates(self, nodes: dict, links: list):
         """
         Nagy sebességű 3D galaktikus beágyazás.
-        Minden tudományág saját gravitációs centrummal bír az űrben,
-        a hivatkozások és társszerzőségek pedig szervesen formálják a csillagképeket.
+        Megőrzi a meglévő csomópontok pozícióit (fixed=fixed_nodes), így új tanulmány érkezésekor
+        a teljes galaxis 100%-ban stabil marad, nem ugrik meg a nézet, és a forgás teljesen sima!
         """
         G = nx.Graph()
         for n_id in nodes.keys():
@@ -395,40 +395,76 @@ class KnowledgeGraphBuilder:
         for link in links:
             G.add_edge(link["source"], link["target"], weight=link.get("weight", 1.0))
 
-        # Alapértelmezett kezdőpozíciók diszciplína klaszterek szerint
+        # Korábbi koordináták kinyerése a stabilitás érdekében
+        existing_coords = {}
+        if self.cached_graph and "nodes" in self.cached_graph:
+            for old_n in self.cached_graph["nodes"]:
+                if "x" in old_n and "y" in old_n and "z" in old_n:
+                    existing_coords[old_n["id"]] = np.array([old_n["x"], old_n["y"], old_n["z"]], dtype=float)
+        elif CACHE_FILE.exists():
+            try:
+                with open(CACHE_FILE, "r", encoding="utf-8") as cf:
+                    cached = json.load(cf)
+                    for old_n in cached.get("nodes", []):
+                        if "x" in old_n and "y" in old_n and "z" in old_n:
+                            existing_coords[old_n["id"]] = np.array([old_n["x"], old_n["y"], old_n["z"]], dtype=float)
+            except Exception:
+                pass
+
         pos_init = {}
+        fixed_nodes = []
         np.random.seed(42)
 
         for n_id, n_data in nodes.items():
-            ntype = n_data.get("type")
-            disc = n_data.get("primary_discipline", "Other")
-            center = DISCIPLINE_CENTERS.get(disc, (0.0, 0.0, 0.0))
+            if n_id in existing_coords:
+                # Meglévő csomópont: pontosan megőrizzük a pozícióját!
+                pos_init[n_id] = existing_coords[n_id]
+                fixed_nodes.append(n_id)
+            else:
+                # Új csomópont: a kapcsolódó szomszédai vagy a diszciplína centruma mellé kerül
+                disc = n_data.get("primary_discipline", "Other")
+                center = DISCIPLINE_CENTERS.get(disc, (0.0, 0.0, 0.0))
 
-            # Szórás a gravitációs középpont körül
-            if ntype == "discipline":
-                pos_init[n_id] = np.array(center, dtype=float)
-            elif ntype == "strategy":
-                pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 40, 3)
-            elif ntype == "author":
-                pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 90, 3)
-            elif ntype == "topic":
-                pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 110, 3)
-            else: # paper
-                pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 65, 3)
+                neighbor_pts = []
+                for link in links:
+                    if link["source"] == n_id and link["target"] in existing_coords:
+                        neighbor_pts.append(existing_coords[link["target"]])
+                    elif link["target"] == n_id and link["source"] in existing_coords:
+                        neighbor_pts.append(existing_coords[link["source"]])
+
+                if neighbor_pts:
+                    base_pt = np.mean(neighbor_pts, axis=0)
+                    pos_init[n_id] = base_pt + np.random.normal(0, 25.0, 3)
+                else:
+                    ntype = n_data.get("type")
+                    spread = 40.0 if ntype == "strategy" else (65.0 if ntype == "paper" else 80.0)
+                    pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, spread, 3)
 
         # Gyors 3D NetworkX tavaszi (spring) relaxáció
         try:
-            # Csak kevés iteráció kell (15-25), mivel a klaszter kezdőpozíciók már ideálisak!
-            # Ez garantálja, hogy 10 000+ csomópont esetén is 1-2 másodperc alatt lefusson!
-            pos_3d = nx.spring_layout(
-                G,
-                dim=3,
-                pos=pos_init,
-                iterations=18,
-                k=45.0 / math.sqrt(max(len(nodes), 1)),
-                scale=650.0,
-                seed=42
-            )
+            if fixed_nodes and len(fixed_nodes) < len(nodes):
+                pos_3d = nx.spring_layout(
+                    G,
+                    dim=3,
+                    pos=pos_init,
+                    fixed=fixed_nodes,
+                    iterations=6,
+                    k=45.0 / math.sqrt(max(len(nodes), 1)),
+                    scale=650.0,
+                    seed=42
+                )
+            elif not fixed_nodes:
+                pos_3d = nx.spring_layout(
+                    G,
+                    dim=3,
+                    pos=pos_init,
+                    iterations=20,
+                    k=45.0 / math.sqrt(max(len(nodes), 1)),
+                    scale=650.0,
+                    seed=42
+                )
+            else:
+                pos_3d = pos_init
         except Exception:
             pos_3d = pos_init
 

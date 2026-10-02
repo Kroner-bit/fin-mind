@@ -113,44 +113,7 @@ class GraphEngine3D {
     dirLight2.position.set(-400, -500, -400);
     this.scene.add(dirLight2);
 
-    // 6. Finom háttér por / csillagmező
-    this.initStarfield();
-  }
-
-  initStarfield() {
-    const count = 1800;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-
-    for (let i = 0; i < count; i++) {
-      const radius = 1600 + Math.random() * 2000;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-
-      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i * 3 + 2] = radius * Math.cos(phi);
-
-      const shade = 0.4 + Math.random() * 0.4;
-      colors[i * 3] = shade;
-      colors[i * 3 + 1] = shade;
-      colors[i * 3 + 2] = shade * 1.1;
-    }
-
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const material = new THREE.PointsMaterial({
-      size: 2.0,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.5,
-      fog: false
-    });
-
-    this.starfield = new THREE.Points(geometry, material);
-    this.scene.add(this.starfield);
+    // 6. Letisztult Apple Dark Matte háttér (háttér csillagok nélkül)
   }
 
   // ─── Adatfrissítés & GPU Instancing ──────────────────────────
@@ -461,13 +424,8 @@ class GraphEngine3D {
       }
     }
 
-    // Keringés frissítés
+    // Keringés frissítés (folyamatos, sima galaktikus forgás)
     this.controls.update();
-
-    // Háttér csillagmező lassan forog
-    if (this.starfield) {
-      this.starfield.rotation.y += 0.0001;
-    }
 
     // Raycast hover detektálás (csak minden 2. képkockán a GPU tehermentesítéséért)
     if (this.frameCount % 2 === 0 && this.instancedMesh) {

@@ -1,8 +1,8 @@
 /**
  * app.js
  * FinMind 3D Knowledge Universe - Apple Pro Matte Live Controller
- * Letisztult lebegő üvegmenü, 60 FPS kijelző, automatikus háttérszinkronizáció
- * és dinamikus csillagszületés animáció (Shockwave & Lerp) az új tanulmányokhoz.
+ * Letisztult lebegő üvegmenü, 60 FPS kijelző, automatikus háttérszinkronizáció,
+ * zenei kozmikus hang-effekt (Web Audio API) és sima, ugrásmentes galaxis-forgás.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnToggleRotate: document.getElementById('btn-toggle-rotate'),
     labelRotate: document.getElementById('label-rotate'),
+
+    btnToggleSound: document.getElementById('btn-toggle-sound'),
+    soundIcon: document.getElementById('sound-icon'),
 
     btnResetView: document.getElementById('btn-reset-view'),
 
@@ -36,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let knownNodeIds = new Set();
   let isAutoSyncEnabled = true;
   let isRotating = true;
+  let isSoundEnabled = true;
   let isInitialLoad = true;
   let toastTimer = null;
 
@@ -46,6 +50,82 @@ document.addEventListener('DOMContentLoaded', () => {
     linkOpacity: 0.18,
     backgroundColor: 0x121214
   });
+
+  // ─── Web Audio API Hangszintetizátor (Ethereal Cosmic Chime) ──
+  let audioCtx = null;
+
+  function getAudioContext() {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  // Felhasználói kattintásra / billentyűleütésre azonnal feloldjuk az AudioContext-et
+  window.addEventListener('pointerdown', () => getAudioContext(), { once: true });
+  window.addEventListener('keydown', () => getAudioContext(), { once: true });
+
+  function playCosmicChime() {
+    if (!isSoundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+
+      // Master gain: lágy, prémium, nem tolakodó hangerő
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.12, now);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+      master.connect(ctx.destination);
+
+      // Ethereal lebegő felhangok (D-dúr pentaton csillag-akkord: 587Hz D5, 740Hz F#5, 880Hz A5, 1175Hz D6)
+      const harmonics = [587.33, 739.99, 880.00, 1174.66];
+      harmonics.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = idx === 0 ? 'sine' : 'triangle';
+        const startTime = now + idx * 0.045; // Finom arpeggio késleltetés
+        osc.frequency.setValueAtTime(freq, startTime);
+
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.28 / (idx + 1), startTime + 0.035);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 1.8 + idx * 0.12);
+
+        osc.connect(gain);
+        gain.connect(master);
+
+        osc.start(startTime);
+        osc.stop(startTime + 2.1);
+      });
+
+      // Magas csillogó fénycsengő (Shimmer Sparkle: 1760Hz A6)
+      const sparkle = ctx.createOscillator();
+      const sparkleGain = ctx.createGain();
+      sparkle.type = 'sine';
+      sparkle.frequency.setValueAtTime(1760.0, now + 0.14);
+
+      sparkleGain.gain.setValueAtTime(0.0001, now + 0.14);
+      sparkleGain.gain.exponentialRampToValueAtTime(0.08, now + 0.18);
+      sparkleGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.3);
+
+      sparkle.connect(sparkleGain);
+      sparkleGain.connect(master);
+
+      sparkle.start(now + 0.14);
+      sparkle.stop(now + 1.4);
+
+    } catch (e) {
+      console.warn("AudioContext hanghiba:", e);
+    }
+  }
 
   // ─── FPS Kijelző Callback ────────────────────────────────────
   engine.onFpsUpdate = (fps) => {
@@ -108,8 +188,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ─── Érkezési Értesítés (Toast) Megjelenítése ─────────────────
+  // ─── Érkezési Értesítés (Toast + Hang) Megjelenítése ──────────
   function showArrivalToast(title, extraCount = 0) {
+    // Megszólaltatjuk az éteri kozmikus hang-effektet
+    playCosmicChime();
+
     if (!el.arrivalToast || !el.toastTitle) return;
 
     clearTimeout(toastTimer);
@@ -172,14 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Átadjuk az új gráfot a 3D motornak az új azonosítókkal
-        // Ez indítja el a GPU lerp animációt és a táguló sokkhullám karikát!
+        // Mivel a backend megőrzi a meglévő koordinátákat (fixed), a nézet nem ugrik meg,
+        // a forgás sima marad, és csak az új csomópont repül be látványosan a helyére!
         engine.setGraphData(newGraph, incomingIds);
 
         if (el.dispNodes) {
           el.dispNodes.textContent = Number(newGraph.total_nodes || newGraph.nodes.length || 0).toLocaleString();
         }
 
-        // Ha van köztük új tanulmány, kiírjuk az elegáns toast értesítőben
+        // Ha van köztük új tanulmány, kiírjuk az elegáns toastban és megszólal a hang
         const newPapers = incomingNodes.filter(n => n.type === 'paper');
         if (newPapers.length > 0) {
           const firstPaperTitle = newPapers[0].label || newPapers[0].id;
@@ -220,20 +304,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 3. Kamera alaphelyzetbe állítása
+  // 3. Hangjelzés ki/be kapcsolása
+  if (el.btnToggleSound) {
+    el.btnToggleSound.addEventListener('click', () => {
+      isSoundEnabled = !isSoundEnabled;
+      el.btnToggleSound.classList.toggle('active', isSoundEnabled);
+      if (el.soundIcon) {
+        el.soundIcon.textContent = isSoundEnabled ? '🔔' : '🔕';
+      }
+      if (isSoundEnabled) {
+        playCosmicChime(); // Rövid visszajelző hang bekapcsoláskor
+      }
+    });
+  }
+
+  // 4. Kamera alaphelyzetbe állítása
   if (el.btnResetView) {
     el.btnResetView.addEventListener('click', () => {
       engine.resetCamera();
     });
   }
 
-  // Billentyűparancsok (R: reset camera, Space: forgás megállítása/indítása)
+  // Billentyűparancsok (R: reset camera, Space: forgás megállítása/indítása, M: hang némítása)
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyR') {
       engine.resetCamera();
     } else if (e.code === 'Space') {
       e.preventDefault();
       if (el.btnToggleRotate) el.btnToggleRotate.click();
+    } else if (e.code === 'KeyM') {
+      if (el.btnToggleSound) el.btnToggleSound.click();
     }
   });
 
