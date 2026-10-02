@@ -219,15 +219,16 @@ function updateRpdCountdown() {
     const km = String(Math.floor((kFullSec % 3600) / 60)).padStart(2, "0");
     const ks = String(kFullSec % 60).padStart(2, "0");
 
-    if (u.rpd_remaining <= 0 || u.is_exhausted) {
-      countdownEl.classList.add("key-reset-exhausted");
-      countdownEl.innerHTML = `${kh}:${km}:${ks} (${fullClock}) <span style="font-size:0.75rem;opacity:0.85;color:#FF453A;">(0/500 betelt)</span>`;
-    } else if (kFullSec <= 0) {
+    if (kFullSec <= 0) {
       countdownEl.textContent = `Szabad (0 / ${u.rpd_limit || 500})`;
       countdownEl.classList.remove("key-reset-exhausted");
     } else {
-      countdownEl.classList.remove("key-reset-exhausted");
-      countdownEl.innerHTML = `${kh}:${km}:${ks} (${fullClock}) <span style="font-size:0.75rem;opacity:0.85;color:#30D158;">(${u.rpd_remaining} szabad)</span>`;
+      if (u.rpd_remaining <= 0 || u.is_exhausted) {
+        countdownEl.classList.add("key-reset-exhausted");
+      } else {
+        countdownEl.classList.remove("key-reset-exhausted");
+      }
+      countdownEl.textContent = `${kh}:${km}:${ks} (${fullClock})`;
     }
   });
 }
@@ -526,11 +527,7 @@ function renderKeyCards() {
       const m = String(Math.floor((resetSec % 3600) / 60)).padStart(2, "0");
       const s = String(Math.floor(resetSec % 60)).padStart(2, "0");
 
-      if (isExhausted) {
-        resetStr = `<span class="key-reset-exhausted">${h}:${m}:${s} (${fullClock})</span> <span style="font-size:0.75rem;opacity:0.85;color:#FF453A;">(0/500 betelt)</span>`;
-      } else {
-        resetStr = `${h}:${m}:${s} (${fullClock}) <span style="font-size:0.75rem;opacity:0.85;color:#30D158;">(${keyUsage.rpd_remaining} szabad)</span>`;
-      }
+      resetStr = `${h}:${m}:${s} (${fullClock})`;
     }
 
     const card = document.createElement("div");
