@@ -29,9 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tooltipTitle: document.getElementById('tooltip-title'),
     tooltipSub: document.getElementById('tooltip-sub'),
 
-    // Arrival Toast
-    arrivalToast: document.getElementById('arrival-toast'),
-    toastTitle: document.getElementById('toast-title')
+    // Floating Arrival Container (+1 animáció)
+    floatingArrivalContainer: document.getElementById('floating-arrival-container')
   };
 
   // Állapot
@@ -41,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRotating = true;
   let isSoundEnabled = true;
   let isInitialLoad = true;
-  let toastTimer = null;
 
   // 3D Motor Inicializálása (Apple Pro Matte háttér és sima folyamatos forgás)
   const engine = new GraphEngine3D('canvas-container', {
@@ -188,27 +186,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ─── Érkezési Értesítés (Toast + Hang) Megjelenítése ──────────
-  function showArrivalToast(title, extraCount = 0) {
+  // ─── Minimalista Lebegő +1 Érkezési Animáció & Hang ───────────
+  function showFloatingPlus(count = 1) {
     // Megszólaltatjuk az éteri kozmikus hang-effektet
     playCosmicChime();
 
-    if (!el.arrivalToast || !el.toastTitle) return;
+    const container = el.floatingArrivalContainer || document.getElementById('floating-arrival-container');
+    if (!container) return;
 
-    clearTimeout(toastTimer);
+    const item = document.createElement('div');
+    item.className = 'floating-plus-item';
+    item.textContent = `+${count}`;
 
-    let displayTitle = title || 'Új tudományos bejegyzés';
-    if (extraCount > 0) {
-      displayTitle += ` (+${extraCount} kapcsolódó entitás)`;
-    }
+    container.appendChild(item);
 
-    el.toastTitle.textContent = displayTitle;
-    el.arrivalToast.style.display = 'flex';
-
-    // 4 másodperc múlva automatikusan elhalványul
-    toastTimer = setTimeout(() => {
-      el.arrivalToast.style.display = 'none';
-    }, 4200);
+    // Amikor az elszálló és elhalványuló animáció lefut, eltávolítjuk a DOM-ból
+    setTimeout(() => {
+      if (item.parentNode) {
+        item.parentNode.removeChild(item);
+      }
+    }, 2400);
   }
 
   // ─── Automatikus Szinkronizáció & Frissítés Ciklus ────────────
@@ -263,15 +260,12 @@ document.addEventListener('DOMContentLoaded', () => {
           el.dispNodes.textContent = Number(newGraph.total_nodes || newGraph.nodes.length || 0).toLocaleString();
         }
 
-        // Ha van köztük új tanulmány, kiírjuk az elegáns toastban és megszólal a hang
+        // Ha van köztük új tanulmány, finom +1 (vagy +N) lebegő felirat száll el és halványul el a képernyőn
         const newPapers = incomingNodes.filter(n => n.type === 'paper');
         if (newPapers.length > 0) {
-          const firstPaperTitle = newPapers[0].label || newPapers[0].id;
-          const others = incomingNodes.length - 1;
-          showArrivalToast(firstPaperTitle, others);
+          showFloatingPlus(newPapers.length);
         } else if (incomingNodes.length > 0) {
-          const firstTitle = incomingNodes[0].label || incomingNodes[0].id;
-          showArrivalToast(firstTitle, incomingNodes.length - 1);
+          showFloatingPlus(1);
         }
       }
     } catch (err) {

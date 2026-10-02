@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=20261002_clean_live">
+  <link rel="stylesheet" href="/static/style.css?v=20261002_spacious_plusone">
 </head>
 <body>
   <!-- Fullscreen 3D WebGL Canvas -->
@@ -72,21 +72,15 @@
     <div class="tooltip-sub" id="tooltip-sub">2024 • Quantitative Finance</div>
   </div>
 
-  <!-- Arrival Toast (Bottom Center - Pops up with animation when new items arrive) -->
-  <div id="arrival-toast" class="arrival-toast" style="display: none;">
-    <span class="toast-star">✨</span>
-    <div class="toast-content">
-      <div class="toast-heading">ÚJ TANULMÁNY ÉRKEZETT</div>
-      <div class="toast-title" id="toast-title">Title...</div>
-    </div>
-  </div>
+  <!-- Minimalist Floating Arrival Indicator Container (+1 elszálló & elhalványuló animáció) -->
+  <div id="floating-arrival-container" class="floating-arrival-container" aria-live="polite"></div>
 
   <!-- VENDOR LIBRARIES (100% LOCAL & OFFLINE) -->
   <script src="/static/vendor/three.min.js"></script>
   <script src="/static/vendor/OrbitControls.js"></script>
 
   <!-- APPLICATION ENGINE & LOGIC -->
-  <script src="/static/graph_engine.js?v=20261002_smooth_sound"></script>
-  <script src="/static/app.js?v=20261002_smooth_sound"></script>
+  <script src="/static/graph_engine.js?v=20261002_spacious_plusone"></script>
+  <script src="/static/app.js?v=20261002_spacious_plusone"></script>
 </body>
 </html>

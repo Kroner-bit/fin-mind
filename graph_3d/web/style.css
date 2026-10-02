@@ -263,63 +263,52 @@ body, html {
 }
 
 /* ==========================================================================
-   ARRIVAL NOTIFICATION TOAST (BOTTOM CENTER)
+   MINIMALIST FLOATING ARRIVAL INDICATOR (+1 DRIFT & FADE)
    ========================================================================== */
-.arrival-toast {
-  position: absolute;
-  bottom: 2rem;
+.floating-arrival-container {
+  position: fixed;
+  top: 22%;
   left: 50%;
-  transform: translateX(-50%) translateY(0);
-  background: rgba(26, 26, 30, 0.95);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(48, 209, 88, 0.35);
-  border-radius: 9999px;
-  padding: 0.5rem 1.25rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(48, 209, 88, 0.15);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  z-index: 50;
-  animation: slide-up-toast 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(-50%);
   pointer-events: none;
-}
-
-@keyframes slide-up-toast {
-  0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.95); }
-  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-}
-
-.toast-star {
-  font-size: 1.1rem;
-  color: var(--apple-green);
-  animation: pulse-star 1.5s infinite;
-}
-
-@keyframes pulse-star {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-}
-
-.toast-content {
+  z-index: 1000;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.toast-heading {
+.floating-plus-item {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: var(--apple-green);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--apple-green, #30D158);
+  text-shadow: 
+    0 0 16px rgba(48, 209, 88, 0.85),
+    0 0 36px rgba(48, 209, 88, 0.4);
+  letter-spacing: -0.5px;
+  user-select: none;
+  pointer-events: none;
+  animation: drift-up-fade 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
 }
 
-.toast-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #fff;
-  white-space: nowrap;
-  max-width: 450px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+@keyframes drift-up-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.7);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.15);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-85px) scale(0.9);
+  }
 }
+

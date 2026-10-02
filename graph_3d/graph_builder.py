@@ -36,14 +36,14 @@ CACHE_FILE = CACHE_DIR / "graph_cache.json"
 # Diszciplínák 3D Galaktikus Klaszter Központjai (Galactic Centers)
 # Ez adja a lenyűgöző "univerzum / csillagköd" térbeli elrendezést
 DISCIPLINE_CENTERS = {
-    "QuantitativeFinance": (0.0, 0.0, 0.0),
-    "EconomicsAndEconometrics": (-350.0, 150.0, -100.0),
-    "ComputerScienceAndAI": (300.0, 250.0, 150.0),
-    "MathematicsAndStatistics": (150.0, -300.0, -200.0),
-    "PhysicsAndComplexSystems": (-250.0, -200.0, 250.0),
-    "AstrophysicsAndCosmology": (-400.0, 300.0, 350.0),
-    "InterdisciplinaryScience": (200.0, -150.0, 300.0),
-    "Other": (0.0, 400.0, -300.0)
+    "QuantitativeFinance": (0.0, 50.0, 0.0),
+    "EconomicsAndEconometrics": (-750.0, 260.0, -320.0),
+    "ComputerScienceAndAI": (700.0, 460.0, 350.0),
+    "MathematicsAndStatistics": (360.0, -680.0, -450.0),
+    "PhysicsAndComplexSystems": (-580.0, -460.0, 580.0),
+    "AstrophysicsAndCosmology": (-880.0, 620.0, 720.0),
+    "InterdisciplinaryScience": (480.0, -360.0, 680.0),
+    "Other": (0.0, 880.0, -680.0)
 }
 
 DISCIPLINE_COLORS = {
@@ -83,7 +83,7 @@ class KnowledgeGraphBuilder:
             return []
         return sorted(list(self.json_dir.glob("*.json")))
 
-    def build_graph(self, force_rebuild: bool = False) -> dict:
+    def build_graph(self, force_rebuild: bool = False, force_fresh_layout: bool = False) -> dict:
         """
         Teljes tudásgráf felépítése a kinyert JSON állományokból.
         Ha létezik friss cache és nincs új fájl, azonnal betölti a memóriából/lemezről.
@@ -92,7 +92,7 @@ class KnowledgeGraphBuilder:
         total_files = len(json_files)
 
         # Cache ellenőrzés
-        if not force_rebuild and CACHE_FILE.exists():
+        if not force_rebuild and not force_fresh_layout and CACHE_FILE.exists():
             try:
                 with open(CACHE_FILE, "r", encoding="utf-8") as f:
                     cached = json.load(f)
@@ -339,7 +339,7 @@ class KnowledgeGraphBuilder:
 
         # 4. 3D Koordináták Számítása (GPU-gyorsított Galaktikus Pozicionálás)
         print("⚡ [GraphBuilder] 3D Koordináták és térbeli klaszterezés kiszámítása...")
-        self._compute_3d_coordinates(nodes, links)
+        self._compute_3d_coordinates(nodes, links, force_fresh_layout=force_fresh_layout)
 
         # Degree (fokszám) számítás
         degree_counter = Counter()
@@ -383,9 +383,10 @@ class KnowledgeGraphBuilder:
         self.last_build_time = time.time()
         return result
 
-    def _compute_3d_coordinates(self, nodes: dict, links: list):
+    def _compute_3d_coordinates(self, nodes: dict, links: list, force_fresh_layout: bool = False):
         """
         Nagy sebességű 3D galaktikus beágyazás.
+        Tágas, szellős elrendezést biztosít, elkerülve a sűrű központi csomósodást.
         Megőrzi a meglévő csomópontok pozícióit (fixed=fixed_nodes), így új tanulmány érkezésekor
         a teljes galaxis 100%-ban stabil marad, nem ugrik meg a nézet, és a forgás teljesen sima!
         """
@@ -395,21 +396,22 @@ class KnowledgeGraphBuilder:
         for link in links:
             G.add_edge(link["source"], link["target"], weight=link.get("weight", 1.0))
 
-        # Korábbi koordináták kinyerése a stabilitás érdekében
+        # Korábbi koordináták kinyerése a stabilitás érdekében (kivéve tiszta újraépítéskor)
         existing_coords = {}
-        if self.cached_graph and "nodes" in self.cached_graph:
-            for old_n in self.cached_graph["nodes"]:
-                if "x" in old_n and "y" in old_n and "z" in old_n:
-                    existing_coords[old_n["id"]] = np.array([old_n["x"], old_n["y"], old_n["z"]], dtype=float)
-        elif CACHE_FILE.exists():
-            try:
-                with open(CACHE_FILE, "r", encoding="utf-8") as cf:
-                    cached = json.load(cf)
-                    for old_n in cached.get("nodes", []):
-                        if "x" in old_n and "y" in old_n and "z" in old_n:
-                            existing_coords[old_n["id"]] = np.array([old_n["x"], old_n["y"], old_n["z"]], dtype=float)
-            except Exception:
-                pass
+        if not force_fresh_layout:
+            if self.cached_graph and "nodes" in self.cached_graph:
+                for old_n in self.cached_graph["nodes"]:
+                    if "x" in old_n and "y" in old_n and "z" in old_n:
+                        existing_coords[old_n["id"]] = np.array([old_n["x"], old_n["y"], old_n["z"]], dtype=float)
+            elif CACHE_FILE.exists():
+                try:
+                    with open(CACHE_FILE, "r", encoding="utf-8") as cf:
+                        cached = json.load(cf)
+                        for old_n in cached.get("nodes", []):
+                            if "x" in old_n and "y" in old_n and "z" in old_n:
+                                existing_coords[old_n["id"]] = np.array([old_n["x"], old_n["y"], old_n["z"]], dtype=float)
+                except Exception:
+                    pass
 
         pos_init = {}
         fixed_nodes = []
@@ -421,7 +423,7 @@ class KnowledgeGraphBuilder:
                 pos_init[n_id] = existing_coords[n_id]
                 fixed_nodes.append(n_id)
             else:
-                # Új csomópont: a kapcsolódó szomszédai vagy a diszciplína centruma mellé kerül
+                # Új csomópont: a kapcsolódó szomszédai vagy a diszciplína centruma mellé kerül szellős eloszlással
                 disc = n_data.get("primary_discipline", "Other")
                 center = DISCIPLINE_CENTERS.get(disc, (0.0, 0.0, 0.0))
 
@@ -434,13 +436,25 @@ class KnowledgeGraphBuilder:
 
                 if neighbor_pts:
                     base_pt = np.mean(neighbor_pts, axis=0)
-                    pos_init[n_id] = base_pt + np.random.normal(0, 25.0, 3)
+                    pos_init[n_id] = base_pt + np.random.normal(0, 50.0, 3)
                 else:
                     ntype = n_data.get("type")
-                    spread = 40.0 if ntype == "strategy" else (65.0 if ntype == "paper" else 80.0)
-                    pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, spread, 3)
+                    if ntype == "discipline":
+                        pos_init[n_id] = np.array(center, dtype=float)
+                    elif ntype == "strategy":
+                        pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 160.0, 3)
+                    elif ntype == "author":
+                        pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 240.0, 3)
+                    elif ntype == "paper":
+                        pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 320.0, 3)
+                    else:
+                        pos_init[n_id] = np.array(center, dtype=float) + np.random.normal(0, 260.0, 3)
 
-        # Gyors 3D NetworkX tavaszi (spring) relaxáció
+        # Tágas, szellős 3D NetworkX tavaszi (spring) relaxáció
+        # A nagyobb scale (1650.0) és megnövelt k-érték szellős, tiszta teret nyújt
+        k_val = 135.0 / math.sqrt(max(len(nodes), 1))
+        scale_val = 1650.0
+
         try:
             if fixed_nodes and len(fixed_nodes) < len(nodes):
                 pos_3d = nx.spring_layout(
@@ -448,9 +462,9 @@ class KnowledgeGraphBuilder:
                     dim=3,
                     pos=pos_init,
                     fixed=fixed_nodes,
-                    iterations=6,
-                    k=45.0 / math.sqrt(max(len(nodes), 1)),
-                    scale=650.0,
+                    iterations=8,
+                    k=k_val,
+                    scale=scale_val,
                     seed=42
                 )
             elif not fixed_nodes:
@@ -458,9 +472,9 @@ class KnowledgeGraphBuilder:
                     G,
                     dim=3,
                     pos=pos_init,
-                    iterations=20,
-                    k=45.0 / math.sqrt(max(len(nodes), 1)),
-                    scale=650.0,
+                    iterations=25,
+                    k=k_val,
+                    scale=scale_val,
                     seed=42
                 )
             else:
@@ -478,5 +492,5 @@ class KnowledgeGraphBuilder:
 
 if __name__ == "__main__":
     builder = KnowledgeGraphBuilder()
-    data = builder.build_graph(force_rebuild=True)
+    data = builder.build_graph(force_rebuild=False)
     print(f"Nodes: {data['node_count']}, Links: {data['link_count']}")

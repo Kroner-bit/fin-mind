@@ -73,11 +73,11 @@ class GraphEngine3D {
     // 1. Scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(this.options.backgroundColor);
-    this.scene.fog = new THREE.FogExp2(this.options.backgroundColor, 0.00035);
+    this.scene.fog = new THREE.FogExp2(this.options.backgroundColor, 0.00016);
 
-    // 2. Camera
-    this.camera = new THREE.PerspectiveCamera(48, width / height, 1, 10000);
-    this.camera.position.set(0, 320, 1150);
+    // 2. Camera (Tágas, szellős 3D látótér)
+    this.camera = new THREE.PerspectiveCamera(48, width / height, 1, 15000);
+    this.camera.position.set(0, 480, 2200);
 
     // 3. WebGL Renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -97,7 +97,7 @@ class GraphEngine3D {
     this.controls.dampingFactor = 0.05;
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 60;
-    this.controls.maxDistance = 4000;
+    this.controls.maxDistance = 8000;
     this.controls.autoRotate = this.options.autoRotate;
     this.controls.autoRotateSpeed = this.options.autoRotateSpeed;
 
@@ -232,7 +232,7 @@ class GraphEngine3D {
   }
 
   createShockwave(position, colorHex) {
-    const ringGeo = new THREE.RingGeometry(1.5, 3.5, 32);
+    const ringGeo = new THREE.RingGeometry(3.0, 7.5, 32);
     const ringMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(colorHex),
       side: THREE.DoubleSide,
@@ -323,8 +323,9 @@ class GraphEngine3D {
   // ─── Kamera Reset & Forgatás ──────────────────────────────────
 
   resetCamera() {
-    this.camera.position.set(0, 320, 1150);
+    this.camera.position.set(0, 480, 2200);
     this.controls.target.set(0, 0, 0);
+    this.controls.update();
   }
 
   toggleAutoRotate(enable) {
