@@ -47,23 +47,23 @@ DISCIPLINE_CENTERS = {
 }
 
 DISCIPLINE_COLORS = {
-    "QuantitativeFinance": "#00f3ff",       # Neon Cián
-    "EconomicsAndEconometrics": "#38bdf8",  # Kékesszürke
-    "ComputerScienceAndAI": "#a855f7",      # Neon Lila
-    "MathematicsAndStatistics": "#ec4899",  # Neon Rózsaszín
-    "PhysicsAndComplexSystems": "#f59e0b",  # Borostyán Narancs
-    "AstrophysicsAndCosmology": "#10b981",  # Smaragd Zöld
-    "InterdisciplinaryScience": "#6366f1",  # Indigó
-    "Other": "#94a3b8"                      # Ezüstszürke
+    "QuantitativeFinance": "#0A84FF",       # Apple Pro Clean Blue
+    "EconomicsAndEconometrics": "#30D158",  # Apple Pro Mint/Emerald
+    "ComputerScienceAndAI": "#64D2FF",      # Apple Pro Cyan/Teal
+    "MathematicsAndStatistics": "#BF5AF2",  # Apple Pro Purple
+    "PhysicsAndComplexSystems": "#FF9F0A",  # Apple Pro Amber
+    "AstrophysicsAndCosmology": "#30D158",  # Apple Pro Emerald
+    "InterdisciplinaryScience": "#5E5CE6",  # Apple Pro Indigo
+    "Other": "#98989D"                      # Apple Pro Slate Grey
 }
 
 NODE_TYPE_COLORS = {
-    "paper": "#00f3ff",
-    "author": "#fbbf24",
-    "strategy": "#f43f5e",
-    "discipline": "#10b981",
-    "asset": "#8b5cf6",
-    "topic": "#64748b"
+    "paper": "#0A84FF",
+    "author": "#FF9F0A",
+    "strategy": "#FF453A",
+    "discipline": "#30D158",
+    "asset": "#BF5AF2",
+    "topic": "#6E6E73"
 }
 
 def sanitize_id(text: str) -> str:

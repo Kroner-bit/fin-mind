@@ -70,6 +70,28 @@ async def get_stats():
         "file_count": g.get("file_count", 0)
     }
 
+@app.get("/api/check-updates")
+async def check_updates(since_count: int = Query(0, description="Az eddig ismert JSON fájlok száma")):
+    """
+    Rendkívül gyors ellenőrzés (pár milliszekundum):
+    Ha van új feldolgozott JSON a lemezen, frissíti a gráfot és visszaadja a teljes friss adathalmazt.
+    """
+    files = builder.get_json_files()
+    total = len(files)
+    if total > since_count:
+        force = (since_count > 0)
+        g = builder.build_graph(force_rebuild=force)
+        return {
+            "has_new": True,
+            "file_count": total,
+            "new_count": total - since_count,
+            "graph": g
+        }
+    return {
+        "has_new": False,
+        "file_count": total
+    }
+
 @app.get("/api/graph")
 async def get_graph(
     types: Optional[str] = Query(None, description="Vesszővel elválasztott típusok: paper,author,strategy,discipline,topic,asset"),

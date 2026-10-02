@@ -3,295 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FinMind // 3D Cosmic Knowledge Graph Studio</title>
+  <title>FinMind // 3D Live Knowledge Universe</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=20261002_1">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=20261002_clean_live">
 </head>
 <body>
-  <!-- 3D WebGL Canvas Container -->
+  <!-- Fullscreen 3D WebGL Canvas -->
   <div id="canvas-container"></div>
 
-  <!-- HUD Interface Layer -->
-  <div id="hud-overlay">
-    
-    <!-- TOP NAVIGATION BAR -->
-    <header class="hud-top-bar">
-      <div class="logo-group">
-        <div class="logo-pulse"></div>
-        <div class="logo-text">
-          <span class="logo-title">FINMIND</span>
-          <span class="logo-subtitle">3D KNOWLEDGE UNIVERSE</span>
-        </div>
+  <!-- Minimalist Floating Apple Glass Pill Menu (Top Center) -->
+  <div class="floating-hud">
+    <div class="minimal-pill-bar">
+      
+      <!-- Brand & Status -->
+      <div class="pill-section brand-section">
+        <span class="live-pulse-dot" id="live-dot" title="Élő GPU Render Aktív"></span>
+        <span class="brand-title">FinMind 3D</span>
       </div>
 
-      <!-- Realtime Hardware & Graph Metrics -->
-      <div class="hud-metrics">
-        <div class="metric-chip">
-          <span class="metric-label">FPS</span>
-          <span class="metric-value fps-good" id="disp-fps">60</span>
-        </div>
-        <div class="metric-chip">
-          <span class="metric-label">NODES</span>
-          <span class="metric-value" id="disp-nodes">0</span>
-        </div>
-        <div class="metric-chip">
-          <span class="metric-label">LINKS</span>
-          <span class="metric-value" id="disp-links">0</span>
-        </div>
-        <div class="metric-chip" id="chip-cluster" style="display: none;">
-          <span class="metric-label">CLUSTER</span>
-          <span class="metric-value" id="disp-cluster">-</span>
-        </div>
+      <div class="pill-divider"></div>
+
+      <!-- FPS Counter -->
+      <div class="pill-section">
+        <span class="fps-value" id="disp-fps">60 FPS</span>
       </div>
 
-      <!-- Search & Autocomplete Input -->
-      <div class="search-box-wrap">
-        <div class="search-icon">🔍</div>
-        <input type="text" id="input-search" class="hud-search-input" placeholder="Keresés: tanulmány, szerző, stratégia, arXiv ID... (Nyomj '/' billentyűt)" autocomplete="off">
-        <button id="btn-clear-search" class="btn-clear-search" title="Keresés törlése">&times;</button>
-        <div id="search-autocomplete-dropdown" class="autocomplete-dropdown"></div>
+      <div class="pill-divider"></div>
+
+      <!-- Live Counts -->
+      <div class="pill-section count-section">
+        <span class="count-number" id="disp-nodes">0</span>
+        <span class="count-label">csomópont</span>
       </div>
 
-      <!-- Action Controls -->
-      <div class="top-actions">
-        <button id="btn-sync-graph" class="btn-hud btn-sync" title="Legfrissebb tanulmányok újraolvasása a háttérből">
-          <span class="btn-icon">⚡</span>
-          <span>Sync Új JSON-ök</span>
-        </button>
-        <button id="btn-toggle-hud" class="btn-hud btn-icon-only" title="HUD felület elrejtése / megjelenítése">
-          <span class="btn-icon">👁️</span>
-        </button>
-      </div>
-    </header>
+      <div class="pill-divider"></div>
 
-    <!-- LEFT CONTROLS PANEL (COLLAPSIBLE GLASSMORPHISM PANEL) -->
-    <aside class="hud-controls-panel" id="controls-panel">
-      <div class="panel-header">
-        <div class="panel-title">
-          <span>🎮 VEZÉRLŐPULT</span>
-        </div>
-        <button id="btn-collapse-controls" class="btn-collapse" title="Panel összecsukása">◀</button>
-      </div>
+      <!-- Auto-Sync Toggle Pill -->
+      <button id="btn-toggle-sync" class="pill-btn active" title="Automatikus szinkronizáció a háttérben futó PDF feldolgozóval">
+        <span class="sync-indicator"></span>
+        <span class="btn-label" id="label-sync">Auto-Sync ON</span>
+      </button>
 
-      <div class="panel-body">
-        
-        <!-- View & Color Modes -->
-        <div class="control-group">
-          <label class="control-label">Színezési & Vizualizációs Mód</label>
-          <div class="mode-select-grid">
-            <button class="btn-mode active" data-mode="discipline" title="Tudományágak szerinti galaktikus színezés">
-              <span class="mode-dot dot-cyan"></span>
-              <span>🌌 Tudományágak</span>
-            </button>
-            <button class="btn-mode" data-mode="type" title="Csomópont típusok szerint: Tanulmány, Szerző, Stratégia...">
-              <span class="mode-dot dot-multi"></span>
-              <span>🧬 Entitás Típus</span>
-            </button>
-            <button class="btn-mode" data-mode="strategy" title="Kereskedési stratégia családok szerint">
-              <span class="mode-dot dot-rose"></span>
-              <span>⚡ Kvant Stratégia</span>
-            </button>
-          </div>
-        </div>
+      <!-- Rotation Toggle Pill -->
+      <button id="btn-toggle-rotate" class="pill-btn active" title="Galaktikus forgás be/ki">
+        <span class="rotate-symbol">↺</span>
+        <span class="btn-label" id="label-rotate">Forgás</span>
+      </button>
 
-        <!-- Entity Filters (Checkboxes) -->
-        <div class="control-group">
-          <label class="control-label">Megjelenített Csomópontok</label>
-          <div class="filter-chips-grid">
-            <label class="filter-chip active" data-type="paper">
-              <input type="checkbox" checked value="paper">
-              <span class="chip-color" style="background: #00f3ff;"></span>
-              <span>Tanulmányok</span>
-            </label>
-            <label class="filter-chip active" data-type="author">
-              <input type="checkbox" checked value="author">
-              <span class="chip-color" style="background: #fbbf24;"></span>
-              <span>Szerzők</span>
-            </label>
-            <label class="filter-chip active" data-type="strategy">
-              <input type="checkbox" checked value="strategy">
-              <span class="chip-color" style="background: #f43f5e;"></span>
-              <span>Stratégiák</span>
-            </label>
-            <label class="filter-chip active" data-type="discipline">
-              <input type="checkbox" checked value="discipline">
-              <span class="chip-color" style="background: #10b981;"></span>
-              <span>Diszciplínák</span>
-            </label>
-            <label class="filter-chip active" data-type="topic">
-              <input type="checkbox" checked value="topic">
-              <span class="chip-color" style="background: #64748b;"></span>
-              <span>Témák / Hash</span>
-            </label>
-            <label class="filter-chip active" data-type="asset">
-              <input type="checkbox" checked value="asset">
-              <span class="chip-color" style="background: #8b5cf6;"></span>
-              <span>Eszközök</span>
-            </label>
-          </div>
-        </div>
+      <!-- Reset View -->
+      <button id="btn-reset-view" class="pill-btn icon-only" title="Kamera alaphelyzetbe (R billentyű)">
+        <span>🎯</span>
+      </button>
 
-        <!-- Discipline Filter Dropdown -->
-        <div class="control-group">
-          <label for="sel-discipline" class="control-label">Tudományág Szűrés</label>
-          <select id="sel-discipline" class="hud-select">
-            <option value="">Mindegyik Tudományág (Minden Galaxis)</option>
-            <option value="QuantitativeFinance">Quantitative Finance</option>
-            <option value="AstrophysicsAndCosmology">Astrophysics & Cosmology</option>
-            <option value="PhysicsAndComplexSystems">Physics & Complex Systems</option>
-            <option value="ComputerScienceAndAI">Computer Science & AI</option>
-            <option value="MathematicsAndStatistics">Mathematics & Statistics</option>
-            <option value="EconomicsAndEconometrics">Economics & Econometrics</option>
-            <option value="InterdisciplinaryScience">Interdisciplinary Science</option>
-          </select>
-        </div>
-
-        <!-- Degree Threshold Slider -->
-        <div class="control-group">
-          <div class="slider-header">
-            <label for="slider-min-degree" class="control-label">Minimális Kapcsolati Fokszám</label>
-            <span class="slider-val" id="val-min-degree">0</span>
-          </div>
-          <input type="range" id="slider-min-degree" min="0" max="15" step="1" value="0" class="hud-range">
-          <span class="control-hint">Növeld a csúszkát a zsúfoltság csökkentésére és csak a fontosabb csomópontok megjelenítésére.</span>
-        </div>
-
-        <!-- Link Opacity Slider -->
-        <div class="control-group">
-          <div class="slider-header">
-            <label for="slider-link-opacity" class="control-label">Kapcsolati Élek Láthatósága</label>
-            <span class="slider-val" id="val-link-opacity">40%</span>
-          </div>
-          <input type="range" id="slider-link-opacity" min="0" max="100" step="5" value="40" class="hud-range">
-        </div>
-
-        <!-- Visual Effects Toggles -->
-        <div class="control-group">
-          <label class="control-label">GPU Render Effektek</label>
-          <div class="toggles-list">
-            <label class="hud-toggle">
-              <input type="checkbox" id="toggle-bloom" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-label">Neon Bloom / Izzás Effekt</span>
-            </label>
-            <label class="hud-toggle">
-              <input type="checkbox" id="toggle-autorotate">
-              <span class="toggle-slider"></span>
-              <span class="toggle-label">Automatikus Moziforgás</span>
-            </label>
-            <label class="hud-toggle">
-              <input type="checkbox" id="toggle-starfield" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-label">Csillagmező & Háttér Por</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Camera Actions -->
-        <div class="control-group">
-          <div class="action-buttons-row">
-            <button id="btn-reset-camera" class="btn-hud btn-sm" title="Kamera visszaállítása az áttekintő nézetbe (R)">
-              🔄 Kamera Reset
-            </button>
-            <button id="btn-isolate-selection" class="btn-hud btn-sm" title="Csak a kiválasztott csomópont szomszédságának megtekintése">
-              🎯 Izolálás
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </aside>
-
-    <!-- RIGHT SLIDING NODE INSPECTOR DRAWER -->
-    <aside class="hud-inspector-drawer" id="inspector-drawer">
-      <div class="drawer-header">
-        <div class="node-badge" id="inspector-badge">TANULMÁNY</div>
-        <button id="btn-close-inspector" class="btn-close-drawer">&times;</button>
-      </div>
-
-      <div class="drawer-body" id="inspector-content">
-        <h2 class="node-title" id="inspector-title">Válassz ki egy csomópontot</h2>
-        <div class="node-meta-row" id="inspector-meta"></div>
-
-        <!-- Cross-domain Transfer Callout (if non-finance or trading ideas exist) -->
-        <div class="transfer-card" id="inspector-transfer-card" style="display: none;">
-          <div class="transfer-header">
-            <span>💡 KVANT & KERESKEDÉSI TRANSZFER ÖTLET</span>
-            <span class="transfer-score-pill" id="inspector-transfer-score">HIGH</span>
-          </div>
-          <div class="transfer-body" id="inspector-transfer-body"></div>
-        </div>
-
-        <!-- Backlinks Connections Grid -->
-        <div class="inspector-section">
-          <div class="section-title-wrap">
-            <h3 class="section-heading">🔗 Kapcsolódó Backlinkek (<span id="inspector-backlink-count">0</span>)</h3>
-            <span class="section-subhint">Kattints bármelyik chipre a kamerarepüléshez!</span>
-          </div>
-          <div class="backlinks-chips-wrap" id="inspector-backlinks-chips"></div>
-        </div>
-
-        <!-- Formulas Section -->
-        <div class="inspector-section" id="inspector-formulas-section" style="display: none;">
-          <h3 class="section-heading">📐 Matematikai Modellek & Képletek</h3>
-          <div id="inspector-formulas-wrap"></div>
-        </div>
-
-        <!-- Abstract / Description -->
-        <div class="inspector-section" id="inspector-abstract-section" style="display: none;">
-          <h3 class="section-heading">📄 Hivatalos Kivonat / Abstract</h3>
-          <p class="node-abstract-text" id="inspector-abstract"></p>
-        </div>
-
-        <!-- Drawer Actions -->
-        <div class="drawer-actions">
-          <button id="btn-flyto-selected" class="btn-hud btn-primary">
-            🚀 Odarepülés (F)
-          </button>
-          <a id="btn-open-arxiv" href="#" target="_blank" class="btn-hud btn-ghost" style="display: none;">
-            arXiv Megnyitása ↗
-          </a>
-        </div>
-      </div>
-    </aside>
-
-    <!-- HOVER TOOLTIP FLOATER -->
-    <div id="hover-tooltip" class="hover-tooltip" style="display: none;">
-      <div class="tooltip-type-pill" id="tooltip-type">PAPER</div>
-      <div class="tooltip-title" id="tooltip-title">Title</div>
-      <div class="tooltip-meta" id="tooltip-meta">Meta info</div>
     </div>
+  </div>
 
-    <!-- BOTTOM KEYBOARD HUD FOOTER -->
-    <footer class="hud-footer">
-      <div class="key-hints">
-        <span class="key-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Űrrepülés</span>
-        <span class="key-hint"><kbd>Egér bal</kbd> Keringés / Forgatás</span>
-        <span class="key-hint"><kbd>Egér jobb</kbd> Mozgatás</span>
-        <span class="key-hint"><kbd>Görgetés</kbd> Zoom</span>
-        <span class="key-hint"><kbd>Kattintás</kbd> Vizsgálat</span>
-        <span class="key-hint"><kbd>F</kbd> Odarepülés</span>
-        <span class="key-hint"><kbd>R</kbd> Kamera Reset</span>
-        <span class="key-hint"><kbd>/</kbd> Keresés</span>
-      </div>
-    </footer>
+  <!-- Minimal Floating Hover Tooltip -->
+  <div id="hover-tooltip" class="floating-tooltip" style="display: none;">
+    <div class="tooltip-badge" id="tooltip-badge">PAPER</div>
+    <div class="tooltip-title" id="tooltip-title">Title</div>
+    <div class="tooltip-sub" id="tooltip-sub">2024 • Quantitative Finance</div>
+  </div>
 
+  <!-- Arrival Toast (Bottom Center - Pops up with animation when new items arrive) -->
+  <div id="arrival-toast" class="arrival-toast" style="display: none;">
+    <span class="toast-star">✨</span>
+    <div class="toast-content">
+      <div class="toast-heading">ÚJ TANULMÁNY ÉRKEZETT</div>
+      <div class="toast-title" id="toast-title">Title...</div>
+    </div>
   </div>
 
   <!-- VENDOR LIBRARIES (100% LOCAL & OFFLINE) -->
   <script src="/static/vendor/three.min.js"></script>
   <script src="/static/vendor/OrbitControls.js"></script>
-  <script src="/static/vendor/EffectComposer.js"></script>
-  <script src="/static/vendor/RenderPass.js"></script>
-  <script src="/static/vendor/ShaderPass.js"></script>
-  <script src="/static/vendor/CopyShader.js"></script>
-  <script src="/static/vendor/LuminosityHighPassShader.js"></script>
-  <script src="/static/vendor/UnrealBloomPass.js"></script>
 
   <!-- APPLICATION ENGINE & LOGIC -->
-  <script src="/static/graph_engine.js?v=20261002_1"></script>
-  <script src="/static/app.js?v=20261002_1"></script>
+  <script src="/static/graph_engine.js?v=20261002_clean_live"></script>
+  <script src="/static/app.js?v=20261002_clean_live"></script>
 </body>
 </html>
