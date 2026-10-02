@@ -1,0 +1,31 @@
+{
+    "api_keys": [
+        {
+            "id": "key_1",
+            "key": "YOUR_GEMINI_API_KEY_HERE",
+            "label": "Primary Key",
+            "rpm": 15,
+            "tpm": 250000,
+            "rpd": 500
+        }
+    ],
+    "active_key_mode": "manual",
+    "active_key_id": "key_1",
+    "model": "gemini-3.5-flash-lite",
+    "fallback_models": [
+        "gemini-2.5-flash"
+    ],
+    "retry": {
+        "max_retries": 3,
+        "initial_delay_seconds": 5,
+        "max_delay_seconds": 60,
+        "backoff_multiplier": 2.0
+    },
+    "pdf_dir": "pdf",
+    "json_dir": "json",
+    "db_path": "research.db",
+    "processing": {
+        "concurrent_workers": 2,
+        "max_utilization_pct": 80
+    }
+}

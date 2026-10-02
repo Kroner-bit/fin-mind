@@ -1,0 +1,75 @@
+# ==============================================================================
+# FinMind - .gitignore
+# ==============================================================================
+
+# --- Secrets & Sensitive Configurations ---
+config.json
+pdf_processor/config.json
+.env
+.env.*
+*.key
+*.pem
+
+# --- Data & Databases (SQLite) ---
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+arxiv_collector/data/
+pdf_processor/research.db
+
+# --- PDF Documents (Raw Papers) ---
+*.pdf
+pdf_processor/pdf/
+
+# --- Generated JSON Output ---
+pdf_processor/json/
+.vault_manifest.json
+*.vault_manifest.json
+
+# --- Obsidian Vault (Generated Knowledge Graph Notes) ---
+obsidian/vault/
+
+# --- Logs ---
+*.log
+arxiv_collector/logs/
+logs/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- IDE & OS Cache ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
