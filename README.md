@@ -21,6 +21,7 @@
    - [4.7. Asztali Tkinter Grafikus Felület (`pdf_processor/app.py`)](#47-asztali-tkinter-grafikus-felület-pdf_processorapppy)
    - [4.8. Determinisztikus Obsidian Brain Gráfgenerátor (`obsidian/generate_obsidian_vault.py`, `generate_obsidian.bat`)](#48-determinisztikus-obsidian-brain-gráfgenerátor-obsidiangenerate_obsidian_vaultpy-generate_obsidianbat)
    - [4.9. Karbantartó és Diagnosztikai Eszközök (`pdf_processor/check_db.py`)](#49-karbantartó-és-diagnosztikai-eszközök-pdf_processorcheck_dbpy)
+   - [4.10. Nagy Sebességű 3D GPU Tudásgráf Stúdió (`graph_3d/`, `run_3d_graph.bat`)](#410-nagy-sebességű-3d-gpu-tudásgráf-stúdió-graph_3d-run_3d_graphbat)
 5. [Mély Architektúra: Többszálúság, 3-Slot Puffer és Sebességkorlátozás](#5-mély-architektúra-többszálúság-3-slot-puffer-és-sebességkorlátozás)
 6. [Konfigurációs Referencia (`config.json`)](#6-konfigurációs-referencia-configjson)
 7. [Telepítés és Rendszerkövetelmények](#7-telepítés-és-rendszerkövetelmények)
@@ -383,6 +384,26 @@ Könnyűsúlyú parancssori ellenőrző szkript a `pdf_processor/research.db` ad
 ```bash
 cd pdf_processor && python check_db.py
 ```
+
+---
+
+### 4.10. Nagy Sebességű 3D GPU Tudásgráf Stúdió (`graph_3d/`, `run_3d_graph.bat`)
+
+Önálló, videójáték-szintű 60 FPS sebességű **3D WebGL Tudástár Megjelenítő**, amely kifejezetten a tízezres nagyságrendű tanulmányok, szerzők, stratégiák és kapcsolati hálók valós idejű felfedezésére lett tervezve.
+
+- **Teljes izoláció és párhuzamos futás**:
+  - Saját, dedikált almappában (`graph_3d/`) működik.
+  - Saját FastAPI webszervert futtat a **8050-es porton** (`http://localhost:8050`), így teljesen független a 8000-es porton épp dolgozó PDF processzortól.
+  - Kizárólag olvasási módban (read-only) olvassa a JSON fájlokat, sosem okoz fájlzárolást vagy adatbázis-ütközést.
+- **GPU-Gyorsított WebGL Renderelés (Three.js GPU Instancing)**:
+  - **1 Draw Call több tízezer csomóponthoz**: A csomópontok `THREE.InstancedMesh` segítségével közvetlenül a videókártya VRAM-jában renderelődnek.
+  - **1 Draw Call százezer kapcsolathoz**: A backlinkek és hivatkozások `THREE.LineSegments` pufferen keresztül jelennek meg.
+  - **UnrealBloomPass Izzás**: Neon kiberpunk és űrbéli csillagköd látványvilág (Cosmic Nebula / Alpha Matrix nézetek).
+  - **Sima 60 FPS Navigáció**: Keringés, nagyítás, kattintásra történő szomszédság-kiemelés (neighborhood dimming), és szabad űrhajós kamerarepülés (`WASD` + `Space`/`Shift`).
+- **Előre számított 3D Galaktikus Elrendezés**:
+  - A CPU a háttérben gyors 3D klaszterezéssel és NetworkX relaxációval számítja ki a pozíciókat, így a böngésző tab sosem fagy le, azonnal megnyílik.
+- **Indítás egyetlen kattintással**:
+  Kattints duplán a gyökérben található `run_3d_graph.bat` fájlra, amely elindítja a szervert és automatikusan megnyitja a böngészőt `http://localhost:8050` címen!
 
 ---
 

@@ -25,6 +25,7 @@ pdf_processor/pdf/
 
 # --- Generated JSON Output ---
 pdf_processor/json/
+graph_3d/cache/
 .vault_manifest.json
 *.vault_manifest.json
 
