@@ -206,34 +206,24 @@ function updateRpdCountdown() {
       return;
     }
 
+    const resetTs = (u.rpd_next_available_ts && (u.rpd_remaining <= 0 || u.is_exhausted)) ? u.rpd_next_available_ts : (u.rpd_reset_ts || u.rpd_next_available_ts);
     let kFullSec = 0;
-    if (u.rpd_reset_ts) {
-      kFullSec = Math.max(0, Math.floor((new Date(u.rpd_reset_ts).getTime() - Date.now()) / 1000));
+    if (resetTs) {
+      kFullSec = Math.max(0, Math.floor((new Date(resetTs).getTime() - Date.now()) / 1000));
     } else if (u.rpd_reset_seconds > 0) {
       kFullSec = Math.max(0, Math.floor(u.rpd_reset_seconds));
     }
 
-    const fullClock = formatClockTime(u.rpd_reset_ts);
+    const fullClock = formatClockTime(resetTs);
     const kh = String(Math.floor(kFullSec / 3600)).padStart(2, "0");
     const km = String(Math.floor((kFullSec % 3600) / 60)).padStart(2, "0");
     const ks = String(kFullSec % 60).padStart(2, "0");
 
-    if (u.rpd_remaining <= 0) {
-      let kNextSec = 0;
-      if (u.rpd_next_available_ts) {
-        kNextSec = Math.max(0, Math.floor((new Date(u.rpd_next_available_ts).getTime() - Date.now()) / 1000));
-      } else if (u.rpd_next_available_seconds > 0) {
-        kNextSec = Math.max(0, Math.floor(u.rpd_next_available_seconds));
-      }
-      const nextClock = formatClockTime(u.rpd_next_available_ts);
-      const nh = String(Math.floor(kNextSec / 3600)).padStart(2, "0");
-      const nm = String(Math.floor((kNextSec % 3600) / 60)).padStart(2, "0");
-      const ns = String(kNextSec % 60).padStart(2, "0");
-
+    if (u.rpd_remaining <= 0 || u.is_exhausted) {
       countdownEl.classList.add("key-reset-exhausted");
-      countdownEl.innerHTML = `<span title="Következő 1 szabad kérés ideje">${nh}:${nm}:${ns} (${nextClock})</span> <span style="font-size:0.75rem;opacity:0.8;" title="Teljes 0/500 reset ideje">| 0/500: ${kh}:${km}:${ks} (${fullClock})</span>`;
+      countdownEl.innerHTML = `${kh}:${km}:${ks} (${fullClock}) <span style="font-size:0.75rem;opacity:0.85;color:#FF453A;">(0/500 betelt)</span>`;
     } else if (kFullSec <= 0) {
-      countdownEl.textContent = "Resetelve (Szabad)";
+      countdownEl.textContent = `Szabad (0 / ${u.rpd_limit || 500})`;
       countdownEl.classList.remove("key-reset-exhausted");
     } else {
       countdownEl.classList.remove("key-reset-exhausted");
@@ -521,20 +511,23 @@ function renderKeyCards() {
     if (isExhausted) statusClass = "key-card-exhausted";
     else if (pct >= 80) statusClass = "key-card-warning";
 
+    const resetTs = (keyUsage.rpd_next_available_ts && isExhausted) ? keyUsage.rpd_next_available_ts : (keyUsage.rpd_reset_ts || keyUsage.rpd_next_available_ts);
+    let resetSec = 0;
+    if (resetTs) {
+      resetSec = Math.max(0, Math.floor((new Date(resetTs).getTime() - Date.now()) / 1000));
+    } else if (keyUsage.rpd_reset_seconds > 0) {
+      resetSec = Math.max(0, Math.floor(keyUsage.rpd_reset_seconds));
+    }
+
     let resetStr = `Szabad (0 / ${keyUsage.rpd_limit || 500})`;
-    if (keyUsage.rpd_used > 0) {
-      const fullClock = formatClockTime(keyUsage.rpd_reset_ts);
-      const h = String(Math.floor(keyUsage.rpd_reset_seconds / 3600)).padStart(2, "0");
-      const m = String(Math.floor((keyUsage.rpd_reset_seconds % 3600) / 60)).padStart(2, "0");
-      const s = String(Math.floor(keyUsage.rpd_reset_seconds % 60)).padStart(2, "0");
+    if (keyUsage.rpd_used > 0 && resetSec > 0) {
+      const fullClock = formatClockTime(resetTs);
+      const h = String(Math.floor(resetSec / 3600)).padStart(2, "0");
+      const m = String(Math.floor((resetSec % 3600) / 60)).padStart(2, "0");
+      const s = String(Math.floor(resetSec % 60)).padStart(2, "0");
 
       if (isExhausted) {
-        const nextClock = formatClockTime(keyUsage.rpd_next_available_ts);
-        const nextSec = keyUsage.rpd_next_available_seconds || 0;
-        const nh = String(Math.floor(nextSec / 3600)).padStart(2, "0");
-        const nm = String(Math.floor((nextSec % 3600) / 60)).padStart(2, "0");
-        const ns = String(Math.floor(nextSec % 60)).padStart(2, "0");
-        resetStr = `<span title="Következő 1 szabad kérés ideje">${nh}:${nm}:${ns} (${nextClock})</span> <span style="font-size:0.75rem;opacity:0.8;" title="Teljes 0/500 reset ideje">| 0/500: ${h}:${m}:${s} (${fullClock})</span>`;
+        resetStr = `<span class="key-reset-exhausted">${h}:${m}:${s} (${fullClock})</span> <span style="font-size:0.75rem;opacity:0.85;color:#FF453A;">(0/500 betelt)</span>`;
       } else {
         resetStr = `${h}:${m}:${s} (${fullClock}) <span style="font-size:0.75rem;opacity:0.85;color:#30D158;">(${keyUsage.rpd_remaining} szabad)</span>`;
       }

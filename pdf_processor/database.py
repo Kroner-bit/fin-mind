@@ -109,6 +109,18 @@ class Database:
             )
         """)
 
+        # Key 24-hour quota cycle tracking:
+        # A cycle starts on the FIRST request of a key, and expires 24 hours later (when it resets to 0)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS key_quota_cycles (
+                api_key_id TEXT PRIMARY KEY,
+                cycle_start TEXT NOT NULL,
+                cycle_end TEXT NOT NULL,
+                request_count INTEGER DEFAULT 0,
+                is_exhausted INTEGER DEFAULT 0
+            )
+        """)
+
         # Fast indexed library table for structured research JSON cards
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS research_library (
@@ -479,6 +491,45 @@ class Database:
                      model, 1 if success else 0, api_key_id)
                 )
 
+            # Update key 24h quota cycle (starts on first use, expires 24h later)
+            if api_key_id:
+                now_dt = datetime.now(timezone.utc)
+                now_iso = now_dt.isoformat()
+                cycle = self.conn.execute(
+                    "SELECT cycle_start, cycle_end, request_count FROM key_quota_cycles WHERE api_key_id = ?",
+                    (api_key_id,)
+                ).fetchone()
+
+                if cycle:
+                    cycle_end_dt = datetime.fromisoformat(cycle[1])
+                    if now_dt >= cycle_end_dt:
+                        # 24h cycle has expired: reset to 0 and start brand new 24h cycle from this first call
+                        c_start = now_iso
+                        c_end = (now_dt + timedelta(hours=24)).isoformat()
+                        self.conn.execute(
+                            """UPDATE key_quota_cycles
+                               SET cycle_start = ?, cycle_end = ?, request_count = 1, is_exhausted = 0
+                               WHERE api_key_id = ?""",
+                            (c_start, c_end, api_key_id)
+                        )
+                    else:
+                        # Increment within existing active cycle
+                        self.conn.execute(
+                            """UPDATE key_quota_cycles
+                               SET request_count = request_count + 1
+                               WHERE api_key_id = ?""",
+                            (api_key_id,)
+                        )
+                else:
+                    # First time this key is ever used: start 24h cycle now
+                    c_start = now_iso
+                    c_end = (now_dt + timedelta(hours=24)).isoformat()
+                    self.conn.execute(
+                        """INSERT INTO key_quota_cycles (api_key_id, cycle_start, cycle_end, request_count, is_exhausted)
+                           VALUES (?, ?, ?, 1, 0)""",
+                        (api_key_id, c_start, c_end)
+                    )
+
             # Update daily summary
             existing = self.conn.execute(
                 "SELECT * FROM daily_usage WHERE date = ?", (today,)
@@ -540,100 +591,176 @@ class Database:
                 ).fetchone()
             return row[0] if row else 0
 
-    def get_requests_today(self, api_key_id: str = None) -> int:
-        """Get number of API requests in the rolling 24-hour window from usage, optionally filtered by key."""
-        cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    def get_key_quota_status(self, api_key_id: str, limit: int = 500) -> dict:
+        """
+        Get single 24-hour cycle quota status for an API key:
+        - Cycle starts on FIRST use of the key in this cycle.
+        - Timer counts down to cycle_start + 24 hours.
+        - When timer expires (now >= cycle_end), it resets to 0 requests used ("ha lejár nullázzuk").
+        - Setting limit to 500 (or 429 quota exhaustion) does NOT start another 24h timer.
+        """
+        now_dt = datetime.now(timezone.utc)
         with self.lock:
-            if api_key_id:
-                row = self.conn.execute(
-                    "SELECT COUNT(*) FROM api_usage WHERE timestamp > ? AND (api_key_id = ? OR key_id = ?)",
+            cycle = self.conn.execute(
+                "SELECT cycle_start, cycle_end, request_count, is_exhausted FROM key_quota_cycles WHERE api_key_id = ?",
+                (api_key_id,)
+            ).fetchone()
+
+            # If no cycle row exists yet, check if there are recent calls in api_usage to initialize it seamlessly
+            if not cycle:
+                cutoff_24h = (now_dt - timedelta(hours=24)).isoformat()
+                usage_row = self.conn.execute(
+                    """SELECT MIN(timestamp), COUNT(*) FROM api_usage
+                       WHERE timestamp > ? AND (api_key_id = ? OR key_id = ?)""",
                     (cutoff_24h, api_key_id, api_key_id)
                 ).fetchone()
-            else:
-                row = self.conn.execute(
-                    "SELECT COUNT(*) FROM api_usage WHERE timestamp > ?", (cutoff_24h,)
-                ).fetchone()
-            return row[0] if row else 0
+                if usage_row and usage_row[0] and usage_row[1] > 0:
+                    first_dt = datetime.fromisoformat(usage_row[0])
+                    cycle_end_dt = first_dt + timedelta(hours=24)
+                    if now_dt < cycle_end_dt:
+                        c_start = first_dt.isoformat()
+                        c_end = cycle_end_dt.isoformat()
+                        count = usage_row[1]
+                        exh = 1 if count >= limit else 0
+                        self.conn.execute(
+                            """INSERT OR REPLACE INTO key_quota_cycles
+                               (api_key_id, cycle_start, cycle_end, request_count, is_exhausted)
+                               VALUES (?, ?, ?, ?, ?)""",
+                            (api_key_id, c_start, c_end, count, exh)
+                        )
+                        self.conn.commit()
+                        cycle = (c_start, c_end, count, exh)
+
+            if not cycle:
+                return {
+                    "rpd_used": 0,
+                    "rpd_remaining": limit,
+                    "rpd_reset_ts": None,
+                    "rpd_reset_seconds": 0.0,
+                    "is_exhausted": False
+                }
+
+            cycle_start_dt = datetime.fromisoformat(cycle[0])
+            cycle_end_dt = datetime.fromisoformat(cycle[1])
+            request_count = cycle[2]
+            is_exhausted = bool(cycle[3])
+
+            if now_dt >= cycle_end_dt:
+                # Cycle has expired! Reset back to zero! ("majd ha lejár nullázuk")
+                self.conn.execute(
+                    """UPDATE key_quota_cycles
+                       SET request_count = 0, is_exhausted = 0
+                       WHERE api_key_id = ?""",
+                    (api_key_id,)
+                )
+                self.conn.commit()
+                return {
+                    "rpd_used": 0,
+                    "rpd_remaining": limit,
+                    "rpd_reset_ts": None,
+                    "rpd_reset_seconds": 0.0,
+                    "is_exhausted": False
+                }
+
+            # Cycle is currently running
+            remaining_seconds = max(0.0, (cycle_end_dt - now_dt).total_seconds())
+            rpd_used = max(request_count, limit if is_exhausted else 0)
+            rpd_remaining = max(0, limit - rpd_used)
+
+            return {
+                "rpd_used": rpd_used,
+                "rpd_remaining": rpd_remaining,
+                "rpd_reset_ts": cycle_end_dt.isoformat(),
+                "rpd_reset_seconds": remaining_seconds,
+                "is_exhausted": is_exhausted or (rpd_remaining <= 0)
+            }
+
+    def get_requests_today(self, api_key_id: str = None) -> int:
+        """Get number of API requests in the active 24-hour cycle for a key or all keys."""
+        if api_key_id:
+            st = self.get_key_quota_status(api_key_id)
+            return st["rpd_used"]
+        else:
+            with self.lock:
+                rows = self.conn.execute("SELECT api_key_id FROM key_quota_cycles").fetchall()
+                if not rows:
+                    cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+                    r = self.conn.execute("SELECT COUNT(*) FROM api_usage WHERE timestamp > ?", (cutoff_24h,)).fetchone()
+                    return r[0] if r else 0
+                total = 0
+                for r in rows:
+                    st = self.get_key_quota_status(r[0])
+                    total += st["rpd_used"]
+                return total
 
     def sync_daily_quota_exhausted(self, api_key_id: str, limit: int = 500):
         """
         Synchronize local RPD counter to limit (default 500) when Google returns 429 Daily Quota Exceeded.
-        Ensures that local tracking immediately reflects the limit without inflating RPM.
+        CRITICAL: Does NOT start another 24-hour timer! Keeps the original 24h reset timer
+        from when the key was first used.
         """
-        cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        now_dt = datetime.now(timezone.utc)
         with self.lock:
-            if api_key_id:
-                row = self.conn.execute(
-                    "SELECT COUNT(*) FROM api_usage WHERE timestamp > ? AND (api_key_id = ? OR key_id = ?)",
-                    (cutoff_24h, api_key_id, api_key_id)
-                ).fetchone()
+            cycle = self.conn.execute(
+                "SELECT cycle_start, cycle_end, request_count FROM key_quota_cycles WHERE api_key_id = ?",
+                (api_key_id,)
+            ).fetchone()
+
+            if cycle:
+                # Do NOT touch cycle_start or cycle_end!
+                # Only mark exhausted and set request_count to at least limit
+                self.conn.execute(
+                    """UPDATE key_quota_cycles
+                       SET request_count = MAX(request_count, ?), is_exhausted = 1
+                       WHERE api_key_id = ?""",
+                    (limit, api_key_id)
+                )
             else:
-                row = self.conn.execute(
-                    "SELECT COUNT(*) FROM api_usage WHERE timestamp > ?", (cutoff_24h,)
-                ).fetchone()
-            current_rpd = row[0] if row else 0
-            needed = max(0, limit - current_rpd)
-            if needed > 0:
-                # Place timestamp safely in the past (e.g. 2 hours ago) so it counts towards 24h RPD but NEVER towards 60s RPM
-                sync_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
-                cols = [row[1] for row in self.conn.execute("PRAGMA table_info(api_usage)").fetchall()]
-                has_key_id = "key_id" in cols
-                cursor = self.conn.cursor()
-                for _ in range(needed):
-                    if has_key_id:
-                        cursor.execute(
-                            """INSERT INTO api_usage (timestamp, pdf_file_name, prompt_tokens,
-                               completion_tokens, total_tokens, model, success, api_key_id, key_id)
-                               VALUES (?, '[Google Daily Quota Sync]', 0, 0, 0, 'gemini-3.5-flash-lite', 1, ?, ?)""",
-                            (sync_time, api_key_id, api_key_id)
-                        )
-                    else:
-                        cursor.execute(
-                            """INSERT INTO api_usage (timestamp, pdf_file_name, prompt_tokens,
-                               completion_tokens, total_tokens, model, success, api_key_id)
-                               VALUES (?, '[Google Daily Quota Sync]', 0, 0, 0, 'gemini-3.5-flash-lite', 1, ?)""",
-                            (sync_time, api_key_id)
-                        )
-                self.conn.commit()
+                # First time: start 24h timer now
+                c_start = now_dt.isoformat()
+                c_end = (now_dt + timedelta(hours=24)).isoformat()
+                self.conn.execute(
+                    """INSERT INTO key_quota_cycles (api_key_id, cycle_start, cycle_end, request_count, is_exhausted)
+                       VALUES (?, ?, ?, ?, 1)""",
+                    (api_key_id, c_start, c_end, limit)
+                )
+            self.conn.commit()
 
     def get_rpd_reset_info(self, api_key_id: str = None) -> dict:
         """
-        Calculate rolling 24-hour reset timestamps from usage:
-        - full_reset_ts / full_reset_seconds: 24h from the LATEST request in the 24h window (when RPD resets completely back to 0/500).
-        - next_available_ts / next_available_seconds: 24h from the OLDEST request (when the very next 1 request frees up).
+        Get 24-hour cycle reset timestamp:
+        Always points to cycle_start + 24 hours. When it expires, resets to 0/500.
         """
-        cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        if api_key_id:
+            st = self.get_key_quota_status(api_key_id)
+            return {
+                "full_reset_ts": st["rpd_reset_ts"],
+                "full_reset_seconds": st["rpd_reset_seconds"],
+                "next_available_ts": st["rpd_reset_ts"],
+                "next_available_seconds": st["rpd_reset_seconds"],
+                "rpd_count": st["rpd_used"],
+                "is_exhausted": st["is_exhausted"]
+            }
+
+        # Global summary across all keys: pick the earliest reset among active cycles
         now_dt = datetime.now(timezone.utc)
         with self.lock:
-            if api_key_id:
-                row = self.conn.execute(
-                    """SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM api_usage
-                       WHERE timestamp > ? AND (api_key_id = ? OR key_id = ?)""",
-                    (cutoff_24h, api_key_id, api_key_id)
-                ).fetchone()
-            else:
-                row = self.conn.execute(
-                    """SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM api_usage
-                       WHERE timestamp > ?""",
-                    (cutoff_24h,)
-                ).fetchone()
+            rows = self.conn.execute("SELECT api_key_id FROM key_quota_cycles WHERE cycle_end > ?", (now_dt.isoformat(),)).fetchall()
+            active_statuses = []
+            for r in rows:
+                st = self.get_key_quota_status(r[0])
+                if st["rpd_reset_seconds"] > 0:
+                    active_statuses.append(st)
 
-            if row and row[2] > 0 and row[0] and row[1]:
-                min_dt = datetime.fromisoformat(row[0])
-                max_dt = datetime.fromisoformat(row[1])
-
-                next_avail_dt = min_dt + timedelta(hours=24)
-                full_reset_dt = max_dt + timedelta(hours=24)
-
-                next_avail_sec = max(0.0, (next_avail_dt - now_dt).total_seconds())
-                full_reset_sec = max(0.0, (full_reset_dt - now_dt).total_seconds())
-
+            if active_statuses:
+                earliest = min(active_statuses, key=lambda s: s["rpd_reset_seconds"])
                 return {
-                    "full_reset_ts": full_reset_dt.isoformat(),
-                    "full_reset_seconds": full_reset_sec,
-                    "next_available_ts": next_avail_dt.isoformat(),
-                    "next_available_seconds": next_avail_sec,
-                    "rpd_count": row[2]
+                    "full_reset_ts": earliest["rpd_reset_ts"],
+                    "full_reset_seconds": earliest["rpd_reset_seconds"],
+                    "next_available_ts": earliest["rpd_reset_ts"],
+                    "next_available_seconds": earliest["rpd_reset_seconds"],
+                    "rpd_count": earliest["rpd_used"],
+                    "is_exhausted": earliest["is_exhausted"]
                 }
 
         return {
@@ -641,23 +768,23 @@ class Database:
             "full_reset_seconds": 0.0,
             "next_available_ts": None,
             "next_available_seconds": 0.0,
-            "rpd_count": 0
+            "rpd_count": 0,
+            "is_exhausted": False
         }
 
     def reset_key_daily_quota(self, api_key_id: str = None):
         """
-        Manually clear/reset daily usage for a key (or all keys) by removing [Google Daily Quota Sync]
-        records and shifting requests in the last 24h to 25 hours ago.
+        Manually clear/reset daily usage for a key (or all keys) immediately back to 0/500.
         """
         cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
         yesterday_iso = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
         with self.lock:
             if api_key_id:
+                self.conn.execute("DELETE FROM key_quota_cycles WHERE api_key_id = ?", (api_key_id,))
                 self.conn.execute(
-                    """DELETE FROM api_usage WHERE timestamp > ? 
-                       AND (api_key_id = ? OR key_id = ?)
+                    """DELETE FROM api_usage WHERE (api_key_id = ? OR key_id = ?)
                        AND pdf_file_name = '[Google Daily Quota Sync]'""",
-                    (cutoff_24h, api_key_id, api_key_id)
+                    (api_key_id, api_key_id)
                 )
                 self.conn.execute(
                     """UPDATE api_usage SET timestamp = ?
@@ -665,11 +792,8 @@ class Database:
                     (yesterday_iso, cutoff_24h, api_key_id, api_key_id)
                 )
             else:
-                self.conn.execute(
-                    """DELETE FROM api_usage WHERE timestamp > ? 
-                       AND pdf_file_name = '[Google Daily Quota Sync]'""",
-                    (cutoff_24h,)
-                )
+                self.conn.execute("DELETE FROM key_quota_cycles")
+                self.conn.execute("DELETE FROM api_usage WHERE pdf_file_name = '[Google Daily Quota Sync]'")
                 self.conn.execute(
                     """UPDATE api_usage SET timestamp = ?
                        WHERE timestamp > ?""",
@@ -752,12 +876,12 @@ class Database:
         if estimated_tokens > 0 and (tpm_current + estimated_tokens) > effective_tpm:
             return False, f"TPM limit threshold reached ({tpm_current + estimated_tokens:,}/{effective_tpm:,} at {int(max_utilization_pct*100)}% cap)", 15
 
-        # Check RPD (Rolling 24-hour cycle)
+        # Check RPD (Fixed 24-hour cycle from first use)
         rpd_current = self.get_requests_today(api_key_id=api_key_id)
         if rpd_current >= effective_rpd:
             rpd_info = self.get_rpd_reset_info(api_key_id=api_key_id)
-            wait = max(rpd_info.get("next_available_seconds", 60.0), 15.0)
-            return False, f"RPD napi kvóta elérve ({rpd_current}/{effective_rpd} kérés). Következő szabad kérés {wait/60:.1f} perc múlva.", wait
+            wait = max(rpd_info.get("full_reset_seconds", 60.0), 15.0)
+            return False, f"RPD napi kvóta elérve ({rpd_current}/{effective_rpd} kérés). Reset {wait/3600:.1f} óra múlva.", wait
 
         return True, "OK", 0
 
@@ -775,6 +899,7 @@ class Database:
             "rpd_reset_seconds": rpd_info["full_reset_seconds"],
             "rpd_next_available_ts": rpd_info["next_available_ts"],
             "rpd_next_available_seconds": rpd_info["next_available_seconds"],
+            "is_exhausted": rpd_info.get("is_exhausted", False)
         }
 
     def get_per_key_usage(self, api_keys: list[dict]) -> list[dict]:
@@ -810,6 +935,7 @@ class Database:
                 "rpd_reset_seconds": rpd_info["full_reset_seconds"],
                 "rpd_next_available_ts": rpd_info["next_available_ts"],
                 "rpd_next_available_seconds": rpd_info["next_available_seconds"],
+                "is_exhausted": rpd_info.get("is_exhausted", False) or (rpd_used >= rpd_limit)
             })
         return result
 
