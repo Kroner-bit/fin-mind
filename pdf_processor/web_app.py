@@ -158,6 +158,7 @@ class WorkerManager:
         self.worker_status: Dict[int, Dict[str, Any]] = {}
         self.workers_lock = threading.Lock()
         self.last_dispatched_slot: Dict[int, int] = {}
+        self.config_lock = threading.Lock()
 
     def load_config(self) -> dict:
         if CONFIG_PATH.exists():
@@ -175,34 +176,18 @@ class WorkerManager:
         }
 
     def save_config(self, new_cfg: dict):
-        # Merge with disk config so external changes to keys or labels are preserved
-        if CONFIG_PATH.exists():
-            try:
-                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                    disk_cfg = json.load(f)
-                disk_keys = {k["id"]: k for k in disk_cfg.get("api_keys", []) if "id" in k}
-                mem_keys = new_cfg.get("api_keys", [])
-                for mk in mem_keys:
-                    kid = mk.get("id")
-                    if kid in disk_keys and "label" in disk_keys[kid]:
-                        mk["label"] = disk_keys[kid]["label"]
-                mem_ids = {mk.get("id") for mk in mem_keys}
-                for kid, dk in disk_keys.items():
-                    if kid not in mem_ids:
-                        mem_keys.append(dk)
-                new_cfg["api_keys"] = mem_keys
-            except Exception:
-                pass
-        self.config.update(new_cfg)
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(self.config, f, indent=4, ensure_ascii=False)
+        with self.config_lock:
+            self.config.update(new_cfg)
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, indent=4, ensure_ascii=False)
 
     def reload_config(self) -> dict:
-        try:
-            self.config = self.load_config()
-        except Exception:
-            pass
-        return self.config
+        with self.config_lock:
+            try:
+                self.config = self.load_config()
+            except Exception:
+                pass
+            return self.config
 
     def get_api_keys(self) -> list[dict]:
         """Return the list of configured API keys."""
@@ -1143,6 +1128,10 @@ async def remove_api_key(req: RemoveKeyRequest):
         worker_mgr.config["active_key_mode"] = "auto"
         worker_mgr.config["active_key_id"] = None
     worker_mgr.save_config(worker_mgr.config)
+    try:
+        worker_mgr.db.reset_key_daily_quota(req.key_id)
+    except Exception as e:
+        print(f"[KeyRemoval] Failed to reset key quota in db: {e}")
     worker_mgr.log_event("system", f"API kulcs eltávolítva: {req.key_id}", "info")
     worker_mgr.broadcast_metrics()
     return {"status": "ok"}
